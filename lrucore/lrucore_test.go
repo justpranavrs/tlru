@@ -7,14 +7,13 @@ package lrucore_test
 import (
 	"testing"
 
-	"github.com/justpranavrs/tlru"
 	"github.com/justpranavrs/tlru/internal/testutil"
 	"github.com/justpranavrs/tlru/lrucore"
 )
 
 // TestLRUCore runs a basic and advanced unit tests for the core LRU instance.
 func TestLRUCore(t *testing.T) {
-	var init testutil.TestInit = func(capacity int) tlru.Cache[int, testutil.User] {
+	var init testutil.TestInit = func(capacity int) testutil.CacheTest[int, testutil.User] {
 		cache, err := lrucore.New[int, testutil.User](capacity)
 		if err != nil {
 			t.Fatalf("[ERROR] could not initialize Cache instance: %v", err)
@@ -27,19 +26,19 @@ func TestLRUCore(t *testing.T) {
 
 // FuzzLRUCore runs a fuzz test for the core LRU instance.
 func FuzzLRUCore(f *testing.F) {
-	var init testutil.TestInit = func(capacity int) tlru.Cache[int, testutil.User] {
+	var init testutil.TestInit = func(capacity int) testutil.CacheTest[int, testutil.User] {
 		cache, err := lrucore.New[int, testutil.User](capacity)
 		if err != nil {
 			f.Fatalf("[ERROR] could not initialize Cache instance: %v", err)
 		}
 		return cache
 	}
-	testutil.FuzzCache(f, init, 512, 2048, 8192)
+	testutil.FuzzCache(f, init, 512, 8192, 2)
 }
 
 // BenchmarkLRUCore runs a benchmark test for the core LRU instance.
 func BenchmarkLRUCore(b *testing.B) {
-	var init testutil.TestInit = func(capacity int) tlru.Cache[int, testutil.User] {
+	var init testutil.TestInit = func(capacity int) testutil.CacheTest[int, testutil.User] {
 		cache, err := lrucore.New[int, testutil.User](capacity)
 		if err != nil {
 			b.Fatalf("[ERROR] could not initialize Cache instance: %v", err)

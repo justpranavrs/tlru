@@ -9,8 +9,8 @@ import (
 	"errors"
 	"slices"
 
-	"github.com/justpranavrs/tlru/internal/conv"
 	"github.com/justpranavrs/tlru/internal/errs"
+	"github.com/justpranavrs/tlru/internal/mathutil"
 	"github.com/justpranavrs/tlru/internal/mux"
 	"github.com/justpranavrs/tlru/lrucore"
 )
@@ -53,6 +53,10 @@ type Cache[K comparable, V any] interface {
 	// Put adds a new value to the cache with the given key.
 	Put(key K, value V)
 
+	// PutGrows adds a new value to the cache with the given key.
+	// It returns true if the size of the cache has grown, else returns false.
+	PutGrows(key K, value V) bool
+
 	// Size returns the current size of the LRU cache.
 	Size() int
 }
@@ -77,11 +81,10 @@ type LRU[K comparable, V any] struct {
 	cache []*lrucore.LRUCore[K, V]
 
 	// mux32 is the router for the shards in the cache array.
-	mux32 mux.Mux32[K]
+	mux32 mux.MuxF32[K]
 
-	// unsafe is the determination of speed of Mux32.
-	// For more details, Refer [mux.Mux32.unsafe]
-	unsafe bool
+	// size measures the current allocated space of the cache
+	size int
 }
 
 // LRUOption allows the use of custom options on the New method of [LRU].
@@ -102,7 +105,6 @@ func New[K comparable, V any](capacity int, opts ...LRUOption[K, V]) (*LRU[K, V]
 	lru := &LRU[K, V]{
 		capacity: capacity,
 		cache:    cache,
-		unsafe:   false,
 	}
 
 	// sort options by priority
@@ -117,7 +119,7 @@ func New[K comparable, V any](capacity int, opts ...LRUOption[K, V]) (*LRU[K, V]
 	}
 
 	// initialize the mux
-	lru.mux32 = mux.New32[K](len(lru.cache), lru.unsafe)
+	lru.mux32 = mux.NewF32[K](len(lru.cache))
 
 	num := len(lru.cache)
 	cap := capacity / num // create lrucore instances
@@ -150,7 +152,7 @@ func New[K comparable, V any](capacity int, opts ...LRUOption[K, V]) (*LRU[K, V]
 //
 // Returns [err.ErrNoShards] if num is less than 1.
 func WithShards[K comparable, V any](num int) LRUOption[K, V] {
-	cnt := conv.NextPowerOf2(num)
+	cnt := mathutil.NextPowerOf2(num)
 	return LRUOption[K, V]{
 		priority: 1,
 		opt: func(l *LRU[K, V]) error {
@@ -158,19 +160,6 @@ func WithShards[K comparable, V any](num int) LRUOption[K, V] {
 				return errs.ErrNoShards
 			}
 			l.cache = make([]*lrucore.LRUCore[K, V], cnt)
-			return nil
-		},
-	}
-}
-
-// WithUnsafe provides a faster routing method to [Mux32] by using
-// Go's unsafe package. It does byte conversion with worrying about
-// Go's Garbage Collector (GC).
-func WithUnsafe[K comparable, V any]() LRUOption[K, V] {
-	return LRUOption[K, V]{
-		priority: 2,
-		opt: func(l *LRU[K, V]) error {
-			l.unsafe = true
 			return nil
 		},
 	}
@@ -208,6 +197,7 @@ func (l *LRU[K, V]) Flush() {
 	for _, c := range l.cache {
 		c.Flush()
 	}
+	l.size = 0
 }
 
 // Get retrieves the cache value using key.
@@ -246,16 +236,23 @@ func (l *LRU[K, V]) GetQuiet(key K) (V, bool) {
 // It updates the key as 'recent' only in its respective shard.
 // It evicts the key only from the respective shard the key is linked to.
 func (l *LRU[K, V]) Put(key K, value V) {
+	l.PutGrows(key, value)
+}
+
+// PutGrows adds a new value to the cache with the given key.
+// It returns true if the size of the cache has grown, else returns false.
+// It evicts or updates locally on the shard, instead of global cache.
+func (l *LRU[K, V]) PutGrows(key K, value V) bool {
 	shard, _ := l.mux32.Get(key)
-	l.cache[shard].Put(key, value)
+	if l.cache[shard].PutGrows(key, value) {
+		l.size++
+		return true
+	}
+	return false
 }
 
 // Size returns the current size of the LRU cache
 // across all sharded instances.
 func (l *LRU[K, V]) Size() int {
-	size := 0
-	for _, c := range l.cache {
-		size += c.Size()
-	}
-	return size
+	return l.size
 }

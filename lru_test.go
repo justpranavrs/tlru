@@ -13,7 +13,7 @@ import (
 
 // TestLRU runs a basic unit test for the sharded LRU instance.
 func TestLRU(t *testing.T) {
-	var init testutil.TestInit = func(capacity int) tlru.Cache[int, testutil.User] {
+	var init testutil.TestInit = func(capacity int) testutil.CacheTest[int, testutil.User] {
 		cache, err := tlru.New[int, testutil.User](capacity)
 		if err != nil {
 			t.Fatalf("[ERROR] could not initialize Cache instance: %v", err)
@@ -23,10 +23,11 @@ func TestLRU(t *testing.T) {
 	testutil.TestCache(t, testutil.BasicTestData, init)
 }
 
-// BenchmarkLRU runs a benchmark test for the sharded LRU instance.
-func BenchmarkLRU(b *testing.B) {
-	var init testutil.TestInit = func(capacity int) tlru.Cache[int, testutil.User] {
-		cache, err := tlru.New[int, testutil.User](capacity)
+// BenchmarkLRUWith64 runs a benchmark test for the sharded LRU instance
+// with 64 sharded [lrucore.LRUCore] instances.
+func BenchmarkLRUWith64(b *testing.B) {
+	var init testutil.TestInit = func(capacity int) testutil.CacheTest[int, testutil.User] {
+		cache, err := tlru.New(capacity, tlru.WithShards[int, testutil.User](64))
 		if err != nil {
 			b.Fatalf("[ERROR] could not initialize Cache instance: %v", err)
 		}
@@ -42,11 +43,10 @@ func BenchmarkLRU(b *testing.B) {
 	testutil.BenchmarkCache(b, init, "Random", 512, benchOpsSize, randomData)
 }
 
-// BenchmarkLRUWithUnsafe runs a benchmark test for the sharded LRU instance
-// with the Unsafe Option.
-func BenchmarkLRUWithUnsafe(b *testing.B) {
-	var init testutil.TestInit = func(capacity int) tlru.Cache[int, testutil.User] {
-		cache, err := tlru.New(capacity, tlru.WithUnsafe[int, testutil.User]())
+// BenchmarkLRU runs a benchmark test for the sharded LRU instance.
+func BenchmarkLRU(b *testing.B) {
+	var init testutil.TestInit = func(capacity int) testutil.CacheTest[int, testutil.User] {
+		cache, err := tlru.New[int, testutil.User](capacity)
 		if err != nil {
 			b.Fatalf("[ERROR] could not initialize Cache instance: %v", err)
 		}

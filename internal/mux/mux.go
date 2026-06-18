@@ -8,67 +8,89 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"encoding/json"
-	"unsafe"
-
-	"github.com/justpranavrs/tlru/internal/conv"
+	"math"
 )
 
 // FNV Prime for s = 5.
 const fnvPrime32 uint32 = 16777619
 
-// Mux32 is utilized to route the incoming keys to their correct
-// shard in the LRU Cache.
-type Mux32[K comparable] struct {
+// Mux32 is a router for the incoming keys. It routes to the
+// correct shard in the Cache.
+type Mux32[K comparable] interface {
+	// Get returns the shard number of the corresponding key.
+	// It returns false if it couldn't parse a JSON key.
+	Get(key K) (uint32, bool)
+}
+
+// MuxF32 is utilized to route the incoming keys to their correct
+// shard in the LRU Cache. It uses the FNV-1a hash algorithm
+type MuxF32[K comparable] struct {
 	// offset is the FNV offset value.
 	// It is randomly generated instead of the given FNV offset value
 	// to ensure attackers don't brute force keys (Hash DOS) to force the
-	// Mux32 to route all to the same shard.
+	// MuxF32 to route all to the same shard.
 	offset uint32
 
 	// mask is used to route the fnv hash to its correct shard
 	// using bitwise &.
 	mask uint32
-
-	// unsafe is the determination of speed of Mux32.
-	//
-	// If true, it will do very fast pointer type unsafe conversions for fnv
-	// to achieve high routing speeds.
-	//
-	// If false, it will perform default conversion with guaranteed type safety.
-	unsafe bool
 }
 
-// New32 creates a [Mux32] instance with a randomly generated
+// NewF32 creates a [MuxF32] instance with a randomly generated
 // FNV offset value and the mask set to (number of shards - 1).
 //
 // num must be a power of 2 or the Mux would not behave as intended.
-func New32[K comparable](num int, unsafe bool) Mux32[K] {
-	return Mux32[K]{
-		offset: setOffset(),
+func NewF32[K comparable](num int) MuxF32[K] {
+	return MuxF32[K]{
+		offset: setSeed(),
 		mask:   uint32(num) - 1,
-		unsafe: unsafe,
 	}
 }
 
 // Get returns the shard number of the corresponding key.
-func (m *Mux32[K]) Get(key K) (uint32, bool) {
-	if m.unsafe { // faster unsafe pointer based conversions
-		switch t := any(key).(type) {
-		case string:
-			return m.fnv(unsafe.Slice(unsafe.StringData(t), len(t)))
-		case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64,
-			uintptr, float32, float64, bool:
-
-			return m.fnv(unsafe.Slice((*byte)(unsafe.Pointer(&key)), unsafe.Sizeof(key)))
-		default:
-			buf, err := json.Marshal(key)
-			if err != nil {
-				return 0, false
-			}
-			return m.fnv(buf)
+func (m *MuxF32[K]) Get(key K) (uint32, bool) {
+	switch t := any(key).(type) {
+	case string:
+		return m.fnvString(t)
+	case bool:
+		if t {
+			return 1, true
 		}
-	} else { // type safe conversions
-		buf, err := conv.ConvBytes(key)
+		return 0, true
+
+	// int
+	case int:
+		return m.fnvNumber(uint64(t), 8)
+	case int8:
+		return m.fnvNumber(uint64(t), 1)
+	case int16:
+		return m.fnvNumber(uint64(t), 2)
+	case int32:
+		return m.fnvNumber(uint64(t), 4)
+	case int64:
+		return m.fnvNumber(uint64(t), 8)
+
+	// uint
+	case uint:
+		return m.fnvNumber(uint64(t), 8)
+	case uint8:
+		return m.fnvNumber(uint64(t), 1)
+	case uint16:
+		return m.fnvNumber(uint64(t), 2)
+	case uint32:
+		return m.fnvNumber(uint64(t), 4)
+	case uint64:
+		return m.fnvNumber(t, 8)
+	case uintptr:
+		return m.fnvNumber(uint64(t), 8)
+
+	case float32:
+		return m.fnvNumber(uint64(math.Float32bits(t)), 4)
+	case float64:
+		return m.fnvNumber(math.Float64bits(t), 8)
+
+	default:
+		buf, err := json.Marshal(key)
 		if err != nil {
 			return 0, false
 		}
@@ -78,7 +100,7 @@ func (m *Mux32[K]) Get(key K) (uint32, bool) {
 
 // fnv implements the Fowler-Noll-Vo hash algorithm for size s = 5.
 // Refer, https://www.ietf.org/archive/id/draft-eastlake-fnv-22.html
-func (m *Mux32[K]) fnv(buf []byte) (uint32, bool) {
+func (m *MuxF32[K]) fnv(buf []byte) (uint32, bool) {
 	hash := m.offset
 	for _, b := range buf {
 		hash ^= uint32(b)
@@ -87,9 +109,30 @@ func (m *Mux32[K]) fnv(buf []byte) (uint32, bool) {
 	return (hash & m.mask), true
 }
 
-// setOffset generates a random 32 bit number for the FNV offset value.
-// If an error occurs, it defaults to the recommended offset value.
-func setOffset() uint32 {
+// fnvString implements FNV-1a, and takes string as its input.
+func (m *MuxF32[K]) fnvString(s string) (uint32, bool) {
+	hash := m.offset
+	for _, b := range s {
+		hash ^= uint32(b)
+		hash *= fnvPrime32
+	}
+	return (hash & m.mask), true
+}
+
+// fnvNumber implements FNV-1a for uint6, must convert number to uint64
+// before using this function.
+func (m *MuxF32[K]) fnvNumber(num uint64, size int) (uint32, bool) {
+	hash := m.offset
+	for i := 0; i < size; i++ {
+		hash ^= uint32(num & 255)
+		num >>= 8
+		hash *= fnvPrime32
+	}
+	return (hash & m.mask), true
+}
+
+// setSeed generates a random 32 bit number.
+func setSeed() uint32 {
 	b := make([]byte, 4)
 	_, err := rand.Read(b)
 	if err != nil {

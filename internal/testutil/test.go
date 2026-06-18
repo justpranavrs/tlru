@@ -9,17 +9,30 @@ import (
 	"math/rand/v2"
 	"testing"
 
-	"github.com/justpranavrs/tlru"
-	"github.com/justpranavrs/tlru/internal/conv"
+	"github.com/justpranavrs/tlru/internal/mathutil"
 )
 
+// CacheTest is a testing interface for the LRU instances.
+// For more details, refer [tlru.Cache]
+type CacheTest[K comparable, V any] interface {
+	Capacity() int
+	Compaction()
+	Contains(key K) bool
+	Flush()
+	Get(key K) (V, bool)
+	GetQuiet(key K) (V, bool)
+	Put(key K, value V)
+	PutGrows(key K, value V) bool
+	Size() int
+}
+
 // TestInit takes in capacity as input and returns a Cache instance
-type TestInit func(int) tlru.Cache[int, User]
+type TestInit func(int) CacheTest[int, User]
 
 // TestCache is the main unit tests function.
 // ops is an array of all the operations.
 func TestCache(t *testing.T, ops []testCacheOp, init TestInit) {
-	var cache tlru.Cache[int, User]
+	var cache CacheTest[int, User]
 	for i, op := range ops {
 		switch op.method {
 		case opInit:
@@ -65,8 +78,10 @@ func TestCache(t *testing.T, ops []testCacheOp, init TestInit) {
 }
 
 // FuzzCache runs a Fuzz test on the Cache instance.
-func FuzzCache(f *testing.F, init TestInit, capacity int, keys int, fuzzOpsSize int) {
-	keys = conv.NextPowerOf2(keys)     // round keys to the next power of 2
+func FuzzCache(f *testing.F, init TestInit, capacity int, fuzzOpsSize int, nBytes int) {
+	keys := mathutil.NextPowerOf2(1 << ((nBytes << 3) - 4)) // round keys to the next power of 2
+	// 4 is for 16 actions in actions array
+
 	evictKey := func(tick []int) int { // finds the evict index
 		evictIdx := 0
 		evictTick := 1<<31 - 1
@@ -83,7 +98,8 @@ func FuzzCache(f *testing.F, init TestInit, capacity int, keys int, fuzzOpsSize 
 	actionMask := len(actions) - 1
 	keyMask := keys - 1
 
-	seed := make([]byte, fuzzOpsSize*8) // generate fuzz seed
+	// each op is nBytes
+	seed := make([]byte, fuzzOpsSize*nBytes) // generate fuzz seed
 	for i := range seed {
 		seed[i] = byte(rand.IntN(256))
 	} // initially generate a fuzz seed for 1024 cache operations
@@ -98,11 +114,11 @@ func FuzzCache(f *testing.F, init TestInit, capacity int, keys int, fuzzOpsSize 
 			tick[i] = -1
 		}
 
-		ops := make([]int, len(arg)/8)
+		ops := make([]int, len(arg)/nBytes)
 		for i := range ops {
 			op := 0
-			for j := range 8 {
-				op = op<<8 + int(arg[i*8+j])
+			for j := range nBytes {
+				op = op<<8 + int(arg[i*nBytes+j])
 			}
 			ops[i] = op
 		}
@@ -149,13 +165,11 @@ func FuzzCache(f *testing.F, init TestInit, capacity int, keys int, fuzzOpsSize 
 					t.Fatalf("\n[ERROR] unexpected value found in [GET QUIET], tick: %d", tk)
 				}
 			case opPut:
-				cache.Put(key, user)
-				if !isCached {
-					if size < capacity {
-						size++
-					} else {
-						tick[evictKey(tick)] = -1
-					}
+				grow := cache.PutGrows(key, user)
+				if grow {
+					size++
+				} else {
+					tick[evictKey(tick)] = -1
 				}
 				state[key] = user
 				tick[key] = tk
@@ -173,7 +187,7 @@ func FuzzCache(f *testing.F, init TestInit, capacity int, keys int, fuzzOpsSize 
 }
 
 func BenchmarkCache(b *testing.B, init TestInit, prefix string, capacity int, benchOpsSize int, data []CacheOp) {
-	benchOpsSize = conv.NextPowerOf2(benchOpsSize)
+	benchOpsSize = mathutil.NextPowerOf2(benchOpsSize)
 	benchOpsSizeMask := benchOpsSize - 1
 
 	cache := init(capacity)
