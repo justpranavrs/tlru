@@ -54,7 +54,7 @@ func (m *MuxF32[K]) Get(key K) (uint32, bool) {
 		return m.fnvString(t)
 	case bool:
 		if t {
-			return 1, true
+			return 1 & m.mask, true
 		}
 		return 0, true
 
@@ -112,8 +112,8 @@ func (m *MuxF32[K]) fnv(buf []byte) (uint32, bool) {
 // fnvString implements FNV-1a, and takes string as its input.
 func (m *MuxF32[K]) fnvString(s string) (uint32, bool) {
 	hash := m.offset
-	for _, b := range s {
-		hash ^= uint32(b)
+	for i := 0; i < len(s); i++ {
+		hash ^= uint32(s[i])
 		hash *= fnvPrime32
 	}
 	return (hash & m.mask), true
