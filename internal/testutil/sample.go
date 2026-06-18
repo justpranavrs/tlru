@@ -19,7 +19,7 @@ const (
 // actions are defined for the fuzz test.
 // flush is removed because fuzz tests are for accuracy.
 var actions = []int{
-	opCapacity, opContains, opGet, opGet, opGet, opGet, opGet, opGet,
+	opContains, opContains, opGet, opGet, opGet, opGet, opGet, opGet,
 	opContains, opGetQuiet, opGetQuiet, opPut, opPut, opPut, opPut, opSize,
 }
 
@@ -43,6 +43,38 @@ type testCacheOp struct {
 	expectedValue  User
 	expectedNumber int
 	expectedBool   bool
+}
+
+// finds the evict index
+func evictKey(tick []int, shard uint32, keys int, mux func(int) (uint32, bool)) int {
+	evictIdx := 0
+	evictTick := 1<<31 - 1
+
+	for idx := range keys {
+		sh, _ := mux(idx) // checks if it is the current shard.
+		if sh != shard {
+			continue
+		}
+
+		// if this is the least tick not equal to -1, no two keys can have same tick
+		if tick[idx] != -1 && tick[idx] < evictTick {
+			evictIdx = idx
+			evictTick = tick[idx]
+		}
+	}
+	return evictIdx
+}
+
+func TestHash(mask uint32) func(int) (uint32, bool) {
+	return func(key int) (uint32, bool) {
+		var hash uint32 = 0
+		for i := 0; i < 8; i++ {
+			hash ^= uint32(key & 255)
+			key >>= 8
+			hash *= 16777619
+		}
+		return (hash & mask), true
+	}
 }
 
 // BasicTestData represents the basic unit test's data.

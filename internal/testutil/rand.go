@@ -21,7 +21,7 @@ func GenerateZipfData(keys int, numOps int) []CacheOp {
 	ops := make([]CacheOp, numOps)
 
 	rng := rand.New(rand.NewPCG(18, 5))
-	zipF := rand.NewZipf(rng, 1.05, 1, uint64(keys))
+	zipF := rand.NewZipf(rng, 1.05, 1, uint64(keys-1))
 
 	for i := range ops {
 		key := int(zipF.Uint64())
