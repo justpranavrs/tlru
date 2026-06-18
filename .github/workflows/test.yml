@@ -1,0 +1,34 @@
+# Copyright (c) 2026 Pranav R S All rights reserved.
+# Use of this source code is governed by a BSD-style
+# license that can be found in the LICENSE file.
+
+name: CI Pipeline for tlru
+
+on:
+  push:
+    branches: ['main']
+  pull_request:
+    branches: ['main']
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v5
+        with:
+         go-version: '1.26'
+
+      - name: "Install"
+        run: "go install golang.org/x/tools/cmd/goimports@latest"
+    
+      - name: "Format"
+        run: "make fmt"
+
+      - name: Golangci-lint
+        uses: golangci/golangci-lint-action@v9.2.1
+        with:
+            version: v2.12.2
+          
+      - name: "Test"
+        run: "make test"
