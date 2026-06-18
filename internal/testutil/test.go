@@ -266,18 +266,20 @@ func BenchmarkCache(b *testing.B, init TestInit, prefix string, capacity int, be
 
 		b.RunParallel(func(p *testing.PB) {
 			i := rand.IntN(benchOpsSize)
+			var userP User
 			for p.Next() {
 				d := data[i]
 				if d.method == opGet {
 					val, ok := cache.Get(data[i].key)
 					if ok {
-						user = val
+						userP = val
 					}
 				} else {
 					cache.Put(data[i].key, data[i].value)
 				}
 				i = (i + 1) & benchOpsSizeMask
 			}
+			user = userP
 
 		})
 		sink = user
