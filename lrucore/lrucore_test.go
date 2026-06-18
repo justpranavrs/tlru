@@ -48,7 +48,7 @@ func BenchmarkLRUCore(b *testing.B) {
 	}
 
 	keys := 16384
-	benchOpsSize := 2 << 20
+	benchOpsSize := 2 << 24
 
 	zipFData := testutil.GenerateZipfData(keys, benchOpsSize)
 	randomData := testutil.GenerateRandomData(keys, benchOpsSize)

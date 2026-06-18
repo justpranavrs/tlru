@@ -97,7 +97,7 @@ type LRUOption[K comparable, V any] struct {
 
 // New creates a [LRU] instance with the given capacity and options. It creates
 // the required [lrucore.LRUCore] instances, initiates the [mux.Mux32] for shard routing.
-func New[K comparable, V any](capacity int, opts ...LRUOption[K, V]) (Cache[K, V], error) {
+func New[K comparable, V any](capacity int, opts ...LRUOption[K, V]) (*LRU[K, V], error) {
 	cache := make([]*lrucore.LRUCore[K, V], DefaultShards)
 	lru := &LRU[K, V]{
 		capacity: capacity,

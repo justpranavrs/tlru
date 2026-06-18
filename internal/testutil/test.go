@@ -20,43 +20,43 @@ type TestInit func(int) tlru.Cache[int, User]
 // ops is an array of all the operations.
 func TestCache(t *testing.T, ops []testCacheOp, init TestInit) {
 	var cache tlru.Cache[int, User]
-	for _, op := range ops {
+	for i, op := range ops {
 		switch op.method {
 		case opInit:
 			cache = init(op.capacity)
 		case opCapacity:
 			cap := cache.Capacity()
 			if cap != op.expectedNumber {
-				t.Fatalf("\n[ERROR] discrepancy in capacity. expected: %d, value : %d", op.expectedNumber, cap)
+				t.Fatalf("\n[ERROR] discrepancy in capacity. expected: %d, value : %d, tick: %d", op.expectedNumber, cap, i)
 			}
 		case opContains:
 			if cache.Contains(op.key) != op.expectedBool {
-				t.Fatalf("\n[ERROR] invalid presence of key. key: %d, expected: %t", op.key, op.expectedBool)
+				t.Fatalf("\n[ERROR] invalid presence of key. key: %d, expected: %t, tick: %d", op.key, op.expectedBool, i)
 			}
 		case opFlush:
 			cache.Flush()
 		case opGet:
 			val, ok := cache.Get(op.key)
 			if ok != op.expectedBool {
-				t.Fatalf("\n[ERROR] invalid presence of key, expected : %t", ok)
+				t.Fatalf("\n[ERROR] invalid presence of key, expected : %t, tick: %d", ok, i)
 			}
 			if ok && val != op.expectedValue {
-				t.Fatalf("\n[ERROR] unexpected value found, expected : %s, value : %s", op.expectedValue.Name, val.Name)
+				t.Fatalf("\n[ERROR] unexpected value found, expected : %s, value : %s, tick: %d", op.expectedValue.Name, val.Name, i)
 			}
 		case opGetQuiet:
 			val, ok := cache.GetQuiet(op.key)
 			if ok != op.expectedBool {
-				t.Fatalf("\n[ERROR] invalid presence of key, expected : %t", ok)
+				t.Fatalf("\n[ERROR] invalid presence of key, expected : %t, tick: %d", ok, i)
 			}
 			if ok && val != op.expectedValue {
-				t.Fatalf("\n[ERROR] unexpected value found, expected : %s, value : %s", op.expectedValue.Name, val.Name)
+				t.Fatalf("\n[ERROR] unexpected value found, expected : %s, value : %s, tick: %d", op.expectedValue.Name, val.Name, i)
 			}
 		case opPut:
 			cache.Put(op.key, op.value)
 		case opSize:
 			size := cache.Size()
 			if size != op.expectedNumber {
-				t.Fatalf("\n[ERROR] unexpected value found, expected : %d, value : %d", op.expectedNumber, size)
+				t.Fatalf("\n[ERROR] unexpected value found, expected : %d, value : %d, tick: %d", op.expectedNumber, size, i)
 			}
 		default:
 			t.Fatal("\n[ERROR] invalid test operation method")
