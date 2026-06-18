@@ -6,6 +6,7 @@ package tlru
 
 import (
 	"errors"
+	"sync/atomic"
 
 	"github.com/justpranavrs/tlru/internal/errs"
 	"github.com/justpranavrs/tlru/internal/mathutil"
@@ -78,17 +79,17 @@ type LRU[K comparable, V any] struct {
 	cache []*lrucore.LRUCore[K, V]
 
 	// mux is the router for the shards in the cache array.
-	// It takes in a key K and outputs a hash [uint32] 
+	// It takes in a key K and outputs a hash [uint32]
 	mux func(key K) (uint32, bool)
 
 	// size measures the current allocated space of the cache
-	size int
+	size atomic.Int32
 }
 
 // config represents the configuration of [LRU]. It should be used with [Option].
 type config struct {
 	shards uint32
-	mux any
+	mux    any
 }
 
 // Option is used to configure [LRU] when creating an instance using [New] constructor.
@@ -96,11 +97,16 @@ type Option func(c *config) error
 
 // New creates a [LRU] instance with the given capacity and options. It creates
 // the required [lrucore.LRUCore] instances, initiates the [mux.MuxHash] for shard routing.
-func New[K comparable, V any](capacity int, opts ...Option) (*LRU[K, V], error) {	
+//
+// Returns [errs.ErrInvalidShards] if shards is not greater than 0 and in [uint32] range.
+//
+// Returns [errs.ErrInvalidCapacity] if capacity is not in [uint32] range and greater than number
+// of shards.
+func New[K comparable, V any](capacity int, opts ...Option) (*LRU[K, V], error) {
 	// build the config
 	cfg := config{
 		shards: DefaultShards,
-		mux: nil,
+		mux:    nil,
 	}
 	for _, opt := range opts { // options
 		if err := opt(&cfg); err != nil {
@@ -108,9 +114,15 @@ func New[K comparable, V any](capacity int, opts ...Option) (*LRU[K, V], error) 
 		}
 	}
 
+	if capacity <= int(cfg.shards) {
+		return nil, errs.ErrInvalidShards
+	} else if capacity > 1<<31-1 {
+		return nil, errs.ErrInvalidCapacity
+	}
+
 	// retrieve the number of shards
 	nShards := int(cfg.shards)
-	
+
 	// set the mux hash
 	var hash mux.MuxHash[K]
 	if cfg.mux != nil {
@@ -122,8 +134,8 @@ func New[K comparable, V any](capacity int, opts ...Option) (*LRU[K, V], error) 
 
 	lru := &LRU[K, V]{
 		capacity: capacity,
-		cache: make([]*lrucore.LRUCore[K, V], nShards),
-		mux: hash,
+		cache:    make([]*lrucore.LRUCore[K, V], nShards),
+		mux:      hash,
 	}
 
 	cap := capacity / nShards // create lrucore instances
@@ -158,7 +170,7 @@ func New[K comparable, V any](capacity int, opts ...Option) (*LRU[K, V], error) 
 func WithShards(num int) Option {
 	cnt := mathutil.NextPowerOf2(num)
 	return func(c *config) error {
-		if cnt < 1 || cnt > 1<<32-1{
+		if cnt < 1 || cnt > 1<<32-1 {
 			return errs.ErrInvalidShards
 		}
 		c.shards = uint32(cnt)
@@ -207,14 +219,14 @@ func (l *LRU[K, V]) Flush() {
 	for _, c := range l.cache {
 		c.Flush()
 	}
-	l.size = 0
+	l.size.Store(0)
 }
 
 // Get retrieves the cache value using key.
 // It returns false if the key is not found.
 // It updates the key as 'recent' only in its respective shard.
 func (l *LRU[K, V]) Get(key K) (V, bool) {
-	shard, ok :=l.mux(key)
+	shard, ok := l.mux(key)
 	if !ok {
 		return *new(V), false
 	}
@@ -255,7 +267,7 @@ func (l *LRU[K, V]) Put(key K, value V) {
 func (l *LRU[K, V]) PutGrows(key K, value V) bool {
 	shard, _ := l.mux(key)
 	if l.cache[shard].PutGrows(key, value) {
-		l.size++
+		l.size.Add(1)
 		return true
 	}
 	return false
@@ -264,5 +276,5 @@ func (l *LRU[K, V]) PutGrows(key K, value V) bool {
 // Size returns the current size of the LRU cache
 // across all sharded instances.
 func (l *LRU[K, V]) Size() int {
-	return l.size
+	return int(l.size.Load())
 }

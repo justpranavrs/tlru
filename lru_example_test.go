@@ -193,7 +193,7 @@ func ExampleLRU_Put() {
 	// true
 }
 
-// ExampleLRU_Size shows an example on how Size works. It returns the current size 
+// ExampleLRU_Size shows an example on how Size works. It returns the current size
 // of the LRU cache.
 func ExampleLRU_Size() {
 	cache, err := tlru.New[int, Member](256)
