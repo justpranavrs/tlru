@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package conv
+package mathutil
 
 // NextPower of 2 uses bit smearing to return the next higher power of 2.
 func NextPowerOf2(x int) int {

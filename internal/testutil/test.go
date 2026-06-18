@@ -7,19 +7,33 @@ package testutil
 import (
 	"fmt"
 	"math/rand/v2"
+	"sync"
 	"testing"
 
-	"github.com/justpranavrs/tlru"
-	"github.com/justpranavrs/tlru/internal/conv"
+	"github.com/justpranavrs/tlru/internal/mathutil"
 )
 
+// CacheTest is a testing interface for the LRU instances.
+// For more details, refer [tlru.Cache]
+type CacheTest[K comparable, V any] interface {
+	Capacity() int
+	Compaction()
+	Contains(key K) bool
+	Flush()
+	Get(key K) (V, bool)
+	GetQuiet(key K) (V, bool)
+	Put(key K, value V)
+	PutGrows(key K, value V) bool
+	Size() int
+}
+
 // TestInit takes in capacity as input and returns a Cache instance
-type TestInit func(int) tlru.Cache[int, User]
+type TestInit func(int) CacheTest[int, User]
 
 // TestCache is the main unit tests function.
 // ops is an array of all the operations.
 func TestCache(t *testing.T, ops []testCacheOp, init TestInit) {
-	var cache tlru.Cache[int, User]
+	var cache CacheTest[int, User]
 	for i, op := range ops {
 		switch op.method {
 		case opInit:
@@ -64,45 +78,71 @@ func TestCache(t *testing.T, ops []testCacheOp, init TestInit) {
 	}
 }
 
-// FuzzCache runs a Fuzz test on the Cache instance.
-func FuzzCache(f *testing.F, init TestInit, capacity int, keys int, fuzzOpsSize int) {
-	keys = conv.NextPowerOf2(keys)     // round keys to the next power of 2
-	evictKey := func(tick []int) int { // finds the evict index
-		evictIdx := 0
-		evictTick := 1<<31 - 1
-		for idx := range keys {
-			// if this is the least tick not equal to -1, no two keys can have same tick
-			if tick[idx] != -1 && tick[idx] < evictTick {
-				evictIdx = idx
-				evictTick = tick[idx]
+// TestRaceCache is the main concurrency check test.
+// It checks if it leads to data race with the -race flag.
+func TestRaceCache(t *testing.T, cache CacheTest[int, User], keys int, numOps int, numWorkers int) {
+	data := GenerateZipfData(keys, numOps)
+	batchSize := (numOps / numWorkers)
+
+	var wg sync.WaitGroup
+	wg.Add(numWorkers)
+
+	for w := range numWorkers {
+		go func(workerID int) {
+			defer wg.Done()
+
+			st := workerID * batchSize
+			en := st + batchSize
+			if workerID == numWorkers-1 {
+				en = numOps
 			}
-		}
-		return evictIdx
+
+			for i := st; i < en; i++ {
+				if data[i].method == opGet {
+					cache.Get(data[i].key)
+				} else {
+					cache.Put(data[i].key, data[i].value)
+				}
+			}
+		}(w)
 	}
+}
+
+// FuzzCache runs a Fuzz test on the Cache instance.
+func FuzzCache(f *testing.F, cache CacheTest[int, User], numOps int, nBytes int, capacity int, shards uint32) {
+	keys := mathutil.NextPowerOf2(1 << ((nBytes << 3) - 4)) // round keys to the next power of 2
+	// 4 is for 16 actions in actions array
 
 	actionMask := len(actions) - 1
 	keyMask := keys - 1
+	maxSize := capacity / int(shards)
 
-	seed := make([]byte, fuzzOpsSize*8) // generate fuzz seed
+	// each op is nBytes
+	seed := make([]byte, numOps*nBytes) // generate fuzz seed
 	for i := range seed {
 		seed[i] = byte(rand.IntN(256))
 	} // initially generate a fuzz seed for 1024 cache operations
 
 	f.Add(seed)
 	f.Fuzz(func(t *testing.T, arg []byte) {
-		cache := init(capacity)     // the cache
+		cache.Flush() // the cache
+
 		state := make([]User, keys) // source of truth
 		tick := make([]int, keys)   // to find evict index
-		size := 0                   // to track size in o(1)
+		size := make([]int, shards) // to track size in o(1)
+		totalSize := 0
+
+		mux := TestHash(shards - 1)
+
 		for i := range keys {
 			tick[i] = -1
 		}
 
-		ops := make([]int, len(arg)/8)
+		ops := make([]int, len(arg)/nBytes)
 		for i := range ops {
 			op := 0
-			for j := range 8 {
-				op = op<<8 + int(arg[i*8+j])
+			for j := range nBytes {
+				op = op<<8 + int(arg[i*nBytes+j])
 			}
 			ops[i] = op
 		}
@@ -120,11 +160,6 @@ func FuzzCache(f *testing.F, init TestInit, capacity int, keys int, fuzzOpsSize 
 			isCached := (tick[key] != -1)
 
 			switch method {
-			case opCapacity:
-				cap := cache.Capacity()
-				if cap != capacity {
-					t.Fatalf("\n[ERROR] discrepancy in capacity, tick: %d", tk)
-				}
 			case opContains:
 				if cache.Contains(key) != isCached {
 					t.Fatalf("\n[ERROR] invalid presence of key in [CONTAINS], expected: %t, tick: %d", !isCached, tk)
@@ -149,20 +184,24 @@ func FuzzCache(f *testing.F, init TestInit, capacity int, keys int, fuzzOpsSize 
 					t.Fatalf("\n[ERROR] unexpected value found in [GET QUIET], tick: %d", tk)
 				}
 			case opPut:
+				shard, _ := mux(key)
+
 				cache.Put(key, user)
 				if !isCached {
-					if size < capacity {
-						size++
+					if size[shard] >= maxSize {
+						tick[evictKey(tick, shard, keys, mux)] = -1
 					} else {
-						tick[evictKey(tick)] = -1
+						size[shard]++
+						totalSize++
 					}
 				}
+
 				state[key] = user
 				tick[key] = tk
 			case opSize:
 				sz := cache.Size()
-				if sz != size {
-					t.Fatalf("\n[ERROR] unexpected size of cache, expected: %d, value: %d, tick: %d", size, sz, tk)
+				if sz != totalSize {
+					t.Fatalf("\n[ERROR] unexpected size of cache, expected: %d, value: %d, tick: %d", totalSize, sz, tk)
 				}
 			default:
 				t.Fatal("\n[ERROR] invalid test operation method")
@@ -172,11 +211,9 @@ func FuzzCache(f *testing.F, init TestInit, capacity int, keys int, fuzzOpsSize 
 	})
 }
 
-func BenchmarkCache(b *testing.B, init TestInit, prefix string, capacity int, benchOpsSize int, data []CacheOp) {
-	benchOpsSize = conv.NextPowerOf2(benchOpsSize)
-	benchOpsSizeMask := benchOpsSize - 1
-
-	cache := init(capacity)
+func BenchmarkCache(b *testing.B, cache CacheTest[int, User], prefix string, capacity int, numOps int, data []CacheOp) {
+	numOps = mathutil.NextPowerOf2(numOps)
+	numOpsMask := numOps - 1
 	var sink User
 
 	b.Run(prefix+"_Puts", func(b *testing.B) {
@@ -187,7 +224,7 @@ func BenchmarkCache(b *testing.B, init TestInit, prefix string, capacity int, be
 		i := 0
 		for b.Loop() {
 			cache.Put(data[i].key, data[i].value)
-			i = (i + 1) & benchOpsSizeMask
+			i = (i + 1) & numOpsMask
 		}
 	})
 
@@ -200,7 +237,7 @@ func BenchmarkCache(b *testing.B, init TestInit, prefix string, capacity int, be
 		var user User
 		for b.Loop() {
 			user, _ = cache.Get(data[i].key)
-			i = (i + 1) & benchOpsSizeMask
+			i = (i + 1) & numOpsMask
 		}
 		sink = user
 	})
@@ -231,7 +268,7 @@ func BenchmarkCache(b *testing.B, init TestInit, prefix string, capacity int, be
 				cache.Put(data[i].key, data[i].value)
 			}
 			total++
-			i = (i + 1) & benchOpsSizeMask
+			i = (i + 1) & numOpsMask
 		}
 
 		sink = user
@@ -251,19 +288,21 @@ func BenchmarkCache(b *testing.B, init TestInit, prefix string, capacity int, be
 		var user User
 
 		b.RunParallel(func(p *testing.PB) {
-			i := rand.IntN(benchOpsSize)
+			i := rand.IntN(numOps)
+			var userP User
 			for p.Next() {
 				d := data[i]
 				if d.method == opGet {
 					val, ok := cache.Get(data[i].key)
 					if ok {
-						user = val
+						userP = val
 					}
 				} else {
 					cache.Put(data[i].key, data[i].value)
 				}
-				i = (i + 1) & benchOpsSizeMask
+				i = (i + 1) & numOpsMask
 			}
+			user = userP
 
 		})
 		sink = user

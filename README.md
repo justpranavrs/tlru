@@ -28,17 +28,17 @@
 ### What is `tlru.LRU`?
 - While `lrucore.LRUCore` is incredibly powerful, struggles under heavy concurrent workloads. That is where `tlru.LRU` shines. It uses a sharded architecture, consisting of many `lrucore.LRUCore` instances. Since each Instance is protected by a mutex lock, `tlru.LRU` doesn't need its own mutex lock.
 - It doesn't undergo a global based eviction. It uses a `shard-based local eviction` for its keys. The more the shards, the lesser the chance to evict the global least recently used key. To use the global based approach, use `lrucore.LRUCore`.
-- It uses a `custom offset FNV-1a` Hash algorithm which is resistant to `Hash DOS attacks`.
+- It uses a `mux.MuxHash` to route the key to one of its shards.
 - It has two options: 
   - `WithShards`: It allows the user to customize the number of shards `tlru.LRU` creates.
-  - `WithUnsafe`: It allows the Mux32 instance present for routing the internal shards to use fast pointer based conversions to achieve peak speeds.
+  - `WithMux`: It allows the configuration of `mux.MuxHash`.
 
-- Both the instances have an experimental feature called `Compaction`. It allows the cache to fix memory fragmentation by using an expensive O(N) call. It can be used on both the instances anytime manually. It does not happen automatically.
+For a detailed walkthrough, refer [here](./LRU.md)
 
 ## Installation
 
 ```bash
-go get -u github.com/justpranavrs/tlru
+go get -u github.com/justpranavrs/tlru@latest
 ```
 
 ## Examples
@@ -73,7 +73,7 @@ func main() {
 ### Customization
 To customize the Cache
 ```go
-cache, err := tlru.New(cacheCapacity, tlru.WithUnsafe[int, User]())
+cache, err := tlru.New[int, User](cacheCapacity, tlru.WithShards(64))
 ```
 #### **Note** : For more examples, refer [here](./lru_example_test.go)
 
@@ -83,37 +83,75 @@ cache, err := tlru.New(cacheCapacity, tlru.WithUnsafe[int, User]())
 - os: archlinux/amd64
 - cpu : AMD Ryzen 7 260 w/ Radeon 780M Graphics
 
-| Component & Workload | Iterations | Latency | Memory | Allocations |
-| --- | --- | --- | --- | --- |
-| **`tlru` (Basic Sharded LRU Cache)** |  |  |  |  |
-| Zipf Puts | 23,886,063 | 55.05 ns/op | 10 B/op | 1 allocs/op |
-| Zipf Gets | 42,368,697 | 30.47 ns/op | 10 B/op | 1 allocs/op |
-| Zipf Mixed | 23,678,805 | 52.33 ns/op | 10 B/op | 1 allocs/op |
-| **Zipf Mixed Parallel** | **61,236,249** | **19.19 ns/op** | **10 B/op** | **1 allocs/op** |
-| Random Puts | 18,772,122 | 62.63 ns/op | 15 B/op | 1 allocs/op |
-| Random Gets | 40,221,781 | 29.62 ns/op | 15 B/op | 1 allocs/op |
-| Random Mixed | 20,971,242 | 57.95 ns/op | 15 B/op | 1 allocs/op |
-| **Random Mixed Parallel** | **72,212,966** | **15.43 ns/op** | **15 B/op** | **1 allocs/op** |
-|  |  |  |  |  |
-| **`tlru` (Zero Allocation, Sharded LRU Cache)** |  |  |  |  |
-| Zipf Puts | 27,370,032 | 38.32 ns/op | 0 B/op | 0 allocs/op |
-| Zipf Gets | 82,687,224 | 14.10 ns/op | 0 B/op | 0 allocs/op |
-| Zipf Mixed | 31,359,452 | 38.13 ns/op | 0 B/op | 0 allocs/op |
-| **Zipf Mixed Parallel** | **63,528,969** | **17.29 ns/op** | **0 B/op** | **0 allocs/op** |
-| Random Puts | 24,723,649 | 45.68 ns/op | 0 B/op | 0 allocs/op |
-| Random Gets | 80,985,068 | 14.77 ns/op | 0 B/op | 0 allocs/op |
-| Random Mixed | 32,517,832 | 38.02 ns/op | 0 B/op | 0 allocs/op |
-| **Random Mixed Parallel** | **87,168,492** | **14.36 ns/op** | **0 B/op** | **0 allocs/op** |
-|  |  |  |  |  |
-| **`lrucore` (Single Threaded LRU Cache)** |  |  |  |  |
-| Zipf Puts | 27,305,832 | 43.23 ns/op | 0 B/op | 0 allocs/op |
-| Zipf Gets | 172,443,609 | 6.926 ns/op | 0 B/op | 0 allocs/op |
-| Zipf Mixed | 28,464,217 | 41.26 ns/op | 0 B/op | 0 allocs/op |
-| Zipf Mixed Parallel | 11,175,440 | 95.03 ns/op | 0 B/op | 0 allocs/op |
-| Random Puts | 20,641,852 | 58.40 ns/op | 0 B/op | 0 allocs/op |
-| Random Gets | 182,889,151 | 6.570 ns/op | 0 B/op | 0 allocs/op |
-| Random Mixed | 25,888,710 | 46.57 ns/op | 0 B/op | 0 allocs/op |
-| Random Mixed Parallel | 13,382,323 | 96.44 ns/op | 0 B/op | 0 allocs/op |
+```
+goos: linux
+goarch: amd64
+pkg: github.com/justpranavrs/tlru
+cpu: AMD Ryzen 7 260 w/ Radeon 780M Graphics
+
+BenchmarkLRUWith64/Zipf_Puts-16                     33895142      35.50 ns/op       0 B/op       0 allocs/op
+BenchmarkLRUWith64/Zipf_Gets-16                    100000000      10.74 ns/op       0 B/op       0 allocs/op
+Hits : 10346504, Miss : 22689820, Ratio: 0.3132
+
+BenchmarkLRUWith64/Zipf_Mixed-16                    33036324      34.23 ns/op       0 B/op       0 allocs/op
+BenchmarkLRUWith64/Zipf_Mixed_Parallel-16           59677258      19.84 ns/op       0 B/op       0 allocs/op
+BenchmarkLRUWith64/Random_Puts-16                   28279300      42.84 ns/op       0 B/op       0 allocs/op
+BenchmarkLRUWith64/Random_Gets-16                  100000000      11.16 ns/op       0 B/op       0 allocs/op
+Hits : 530268, Miss : 33483160, Ratio: 0.0156
+
+BenchmarkLRUWith64/Random_Mixed-16                  34013428      34.95 ns/op       0 B/op       0 allocs/op
+BenchmarkLRUWith64/Random_Mixed_Parallel-16         76379761      15.54 ns/op       0 B/op       0 allocs/op
+
+BenchmarkLRU/Zipf_Puts-16                           32656112      36.36 ns/op       0 B/op       0 allocs/op
+BenchmarkLRU/Zipf_Gets-16                          100000000      11.24 ns/op       0 B/op       0 allocs/op
+Hits : 10665195, Miss : 23736553, Ratio: 0.3100
+
+BenchmarkLRU/Zipf_Mixed-16                          34401748      34.94 ns/op       0 B/op       0 allocs/op
+BenchmarkLRU/Zipf_Mixed_Parallel-16                 60444584      19.27 ns/op       0 B/op       0 allocs/op
+BenchmarkLRU/Random_Puts-16                         28685742      41.55 ns/op       0 B/op       0 allocs/op
+BenchmarkLRU/Random_Gets-16                        100000000      11.01 ns/op       0 B/op       0 allocs/op
+Hits : 565990, Miss : 35638611, Ratio: 0.0156
+
+BenchmarkLRU/Random_Mixed-16                        36204601      33.29 ns/op       0 B/op       0 allocs/op
+BenchmarkLRU/Random_Mixed_Parallel-16              100000000      11.78 ns/op       0 B/op       0 allocs/op
+
+BenchmarkLRUWith256/Zipf_Puts-16                    34739044      37.05 ns/op       0 B/op       0 allocs/op
+BenchmarkLRUWith256/Zipf_Gets-16                    90376778      11.86 ns/op       0 B/op       0 allocs/op
+Hits : 8720847, Miss : 20926643, Ratio: 0.2942
+
+BenchmarkLRUWith256/Zipf_Mixed-16                   29647490      37.26 ns/op       0 B/op       0 allocs/op
+BenchmarkLRUWith256/Zipf_Mixed_Parallel-16          73194765      16.23 ns/op       0 B/op       0 allocs/op
+BenchmarkLRUWith256/Random_Puts-16                  28679670      41.81 ns/op       0 B/op       0 allocs/op
+BenchmarkLRUWith256/Random_Gets-16                 100000000      11.42 ns/op       0 B/op       0 allocs/op
+Hits : 556574, Miss : 35059573, Ratio: 0.0156
+
+BenchmarkLRUWith256/Random_Mixed-16                 35616147      32.98 ns/op       0 B/op       0 allocs/op
+BenchmarkLRUWith256/Random_Mixed_Parallel-16       100000000      10.06 ns/op       0 B/op       0 allocs/op
+PASS
+ok      github.com/justpranavrs/tlru    117.784s
+
+---
+
+goos: linux
+goarch: amd64
+pkg: github.com/justpranavrs/tlru/lrucore
+cpu: AMD Ryzen 7 260 w/ Radeon 780M Graphics
+
+BenchmarkLRUCore/Zipf_Puts-16                       28624830      42.47 ns/op       0 B/op       0 allocs/op
+BenchmarkLRUCore/Zipf_Gets-16                      176645416       6.66 ns/op       0 B/op       0 allocs/op
+Hits : 9701277, Miss : 20902822, Ratio: 0.3170
+
+BenchmarkLRUCore/Zipf_Mixed-16                      30604099      39.83 ns/op       0 B/op       0 allocs/op
+BenchmarkLRUCore/Zipf_Mixed_Parallel-16             12427209     100.40 ns/op       0 B/op       0 allocs/op
+BenchmarkLRUCore/Random_Puts-16                     18420439      59.85 ns/op       0 B/op       0 allocs/op
+BenchmarkLRUCore/Random_Gets-16                    173226816       6.78 ns/op       0 B/op       0 allocs/op
+Hits : 381034, Miss : 24014774, Ratio: 0.0156
+
+BenchmarkLRUCore/Random_Mixed-16                    24395808      48.63 ns/op       0 B/op       0 allocs/op
+BenchmarkLRUCore/Random_Mixed_Parallel-16           13277698     101.00 ns/op       0 B/op       0 allocs/op
+PASS
+ok      github.com/justpranavrs/tlru/lrucore    40.171s
+```
 
 ## License
 Copyright(c) 2026 Pranav R S

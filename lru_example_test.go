@@ -8,7 +8,6 @@ import (
 	"fmt"
 
 	"github.com/justpranavrs/tlru"
-	"github.com/justpranavrs/tlru/lrucore"
 )
 
 // Member is the type of the value stored in the cache.
@@ -50,8 +49,8 @@ func ExampleCache() {
 	// 256
 }
 
-// ExampleCache_Capacity shows an example of how Capacity works.
-func ExampleCache_Capacity() {
+// ExampleLRU_Capacity shows an example of how Capacity works.
+func ExampleLRU_Capacity() {
 	cache, err := tlru.New[int, Member](256) // create a lru instance
 	if err != nil {
 		fmt.Printf("[ERROR] could not initialize LRU instance: %v", err)
@@ -64,46 +63,8 @@ func ExampleCache_Capacity() {
 	// 256
 }
 
-// ExampleCache_Compaction shows an example of how Compaction is called
-// to perform the O(N) operation to fix memory fragmentation.
-func ExampleCache_Compaction() {
-	cache, err := tlru.New[int, Member](256) // create a lru instance
-	if err != nil {
-		fmt.Printf("[ERROR] could not initialize LRU instance: %v", err)
-		return
-	}
-
-	cache.Put(1, Member{ // insert in user data with user id 1
-		Name:  "justpranavrs",
-		Email: "iliketlru@gmail.com",
-	})
-	cache.Put(2, Member{
-		Name:  "welcometotlru",
-		Email: "welcometotlru@gmail.com",
-	})
-	cache.Put(3, Member{
-		Name:  "tlru",
-		Email: "tlruiscool@gmail.com",
-	})
-	val, ok := cache.Get(1) // 2 3 1
-	if !ok {
-		fmt.Println("[GET] could not find the key in the cache.")
-	} else {
-		fmt.Printf("[GET] Name : %v | Email : %v\n", val.Name, val.Email)
-	}
-
-	// Array : [1, 2, 3] 2 points to 3. 3 points to 1
-	// Compaction works best with a large capacity.
-	// For a better explanation, check [lrucore.LRUCore.Compaction]
-	cache.Compaction()
-	// Array: [2, 3, 1] Compaction performed to hit L1/L2 cache.
-
-	// Output:
-	// [GET] Name : justpranavrs | Email : iliketlru@gmail.com
-}
-
-// ExampleCache_Contains shows an example of how Contains works.
-func ExampleCache_Contains() {
+// ExampleLRU_Contains shows an example of how Contains works.
+func ExampleLRU_Contains() {
 	cache, err := tlru.New[int, Member](256) // create a lru instance
 	if err != nil {
 		fmt.Printf("[ERROR] could not initialize LRU instance: %v", err)
@@ -122,9 +83,9 @@ func ExampleCache_Contains() {
 	// false
 }
 
-// ExampleCache_Get shows an example of how Get works and
+// ExampleLRU_Get shows an example of how Get works and
 // how to handle when the key is not found in the cache.
-func ExampleCache_Get() {
+func ExampleLRU_Get() {
 	cache, err := tlru.New[int, Member](256)
 	if err != nil {
 		fmt.Printf("[ERROR] could not initialize LRU instance: %v", err)
@@ -153,10 +114,10 @@ func ExampleCache_Get() {
 	// [GET] could not find the key in the cache.
 }
 
-// ExampleCache_GetQuiet shows an example of how GetQuiet works.
+// ExampleLRU_GetQuiet shows an example of how GetQuiet works.
 // It doesn't disturb the internal state of the cache.
-func ExampleCache_GetQuiet() {
-	cache, err := lrucore.New[int, Member](2)
+func ExampleLRU_GetQuiet() {
+	cache, err := tlru.New[int, Member](2, tlru.WithShards(1))
 	if err != nil {
 		fmt.Printf("[ERROR] could not initialize LRUCore instance: %v", err)
 		return
@@ -195,12 +156,12 @@ func ExampleCache_GetQuiet() {
 	// false
 }
 
-// ExampleCache_Put shows an example of how Put works and showcases
+// ExampleLRU_Put shows an example of how Put works and showcases
 // the least recently used key getting evicted in a LRU cache.
-func ExampleCache_Put() {
-	cache, err := lrucore.New[int, Member](2)
+func ExampleLRU_Put() {
+	cache, err := tlru.New[int, Member](256)
 	if err != nil {
-		fmt.Printf("[ERROR] could not initialize LRUCore instance: %v", err)
+		fmt.Printf("[ERROR] could not initialize LRU instance: %v", err)
 		return
 	}
 
@@ -221,8 +182,8 @@ func ExampleCache_Put() {
 		Name:  "justpranavrs",
 		Email: "tlruiscool@gmail.com",
 	})
-	fmt.Println(cache.Contains(1))
-	fmt.Println(cache.Contains(2))
+	fmt.Println(cache.Contains(4))
+	fmt.Println(cache.Contains(3))
 
 	// Output:
 	// false
@@ -232,10 +193,12 @@ func ExampleCache_Put() {
 	// true
 }
 
-func ExampleCache_Size() {
-	cache, err := lrucore.New[int, Member](2)
+// ExampleLRU_Size shows an example on how Size works. It returns the current size
+// of the LRU cache.
+func ExampleLRU_Size() {
+	cache, err := tlru.New[int, Member](256)
 	if err != nil {
-		fmt.Printf("[ERROR] could not initialize LRUCore instance: %v", err)
+		fmt.Printf("[ERROR] could not initialize LRU instance: %v", err)
 		return
 	}
 

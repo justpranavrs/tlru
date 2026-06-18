@@ -6,9 +6,9 @@ name: CI Pipeline for tlru
 
 on:
   push:
-    branches: ['main']
+    branches: ['main', 'dev']
   pull_request:
-    branches: ['main']
+    branches: ['main', 'dev']
 
 jobs:
   test:
@@ -21,9 +21,6 @@ jobs:
 
       - name: "Install"
         run: "go install golang.org/x/tools/cmd/goimports@latest"
-    
-      - name: "Format"
-        run: "make fmt"
 
       - name: Golangci-lint
         uses: golangci/golangci-lint-action@v9.2.1
@@ -32,3 +29,15 @@ jobs:
           
       - name: "Test"
         run: "make test"
+      
+      - name: "Race"
+        run: "make race"
+
+      - name: "FuzzLRUCore"
+        run : "go test -fuzz=FuzzLRUCore -fuzztime=30s ./lrucore"
+        
+      - name: "FuzzLRU"
+        run : "go test -fuzz=FuzzLRU -fuzztime=30s ."
+
+      - name: "Bench"
+        run : "make bench"
