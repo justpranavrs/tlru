@@ -40,8 +40,6 @@ func NewF32[K comparable](num int) MuxF32[K] {
 // Get returns the shard number of the corresponding key.
 func (m *MuxF32[K]) Get(key K) (uint32, bool) {
 	switch t := any(key).(type) {
-	case MuxHash:
-		return t.Hash(), true
 	case string:
 		return m.fnvString(t)
 	case bool:

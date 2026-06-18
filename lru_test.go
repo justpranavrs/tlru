@@ -23,11 +23,23 @@ func TestLRU(t *testing.T) {
 	testutil.TestCache(t, testutil.BasicTestData, init)
 }
 
+// FuzzLRU runs a fuzz test for the sharded LRU instance.
+func FuzzLRU(f *testing.F) {
+	var init testutil.TestInit = func(capacity int) testutil.CacheTest[int, testutil.User] {
+		cache, err := tlru.New[int, testutil.User](capacity)
+		if err != nil {
+			f.Fatalf("[ERROR] could not initialize Cache instance: %v", err)
+		}
+		return cache
+	}
+	testutil.FuzzCache(f, init, 512, 8192, 2)
+}
+
 // BenchmarkLRUWith64 runs a benchmark test for the sharded LRU instance
 // with 64 sharded [lrucore.LRUCore] instances.
 func BenchmarkLRUWith64(b *testing.B) {
 	var init testutil.TestInit = func(capacity int) testutil.CacheTest[int, testutil.User] {
-		cache, err := tlru.New(capacity, tlru.WithShards[int, testutil.User](64))
+		cache, err := tlru.New[int, testutil.User](capacity, tlru.WithShards(64))
 		if err != nil {
 			b.Fatalf("[ERROR] could not initialize Cache instance: %v", err)
 		}
@@ -35,12 +47,12 @@ func BenchmarkLRUWith64(b *testing.B) {
 	}
 
 	keys := 16384
-	benchOpsSize := 2 << 24
+	numOps := 2 << 24
 
-	zipFData := testutil.GenerateZipfData(keys, benchOpsSize)
-	randomData := testutil.GenerateRandomData(keys, benchOpsSize)
-	testutil.BenchmarkCache(b, init, "Zipf", 512, benchOpsSize, zipFData)
-	testutil.BenchmarkCache(b, init, "Random", 512, benchOpsSize, randomData)
+	zipFData := testutil.GenerateZipfData(keys, numOps)
+	randomData := testutil.GenerateRandomData(keys, numOps)
+	testutil.BenchmarkCache(b, init, "Zipf", 512, numOps, zipFData)
+	testutil.BenchmarkCache(b, init, "Random", 512, numOps, randomData)
 }
 
 // BenchmarkLRU runs a benchmark test for the sharded LRU instance.
@@ -54,10 +66,30 @@ func BenchmarkLRU(b *testing.B) {
 	}
 
 	keys := 16384
-	benchOpsSize := 2 << 24
+	numOps := 2 << 24
 
-	zipFData := testutil.GenerateZipfData(keys, benchOpsSize)
-	randomData := testutil.GenerateRandomData(keys, benchOpsSize)
-	testutil.BenchmarkCache(b, init, "Zipf", 512, benchOpsSize, zipFData)
-	testutil.BenchmarkCache(b, init, "Random", 512, benchOpsSize, randomData)
+	zipFData := testutil.GenerateZipfData(keys, numOps)
+	randomData := testutil.GenerateRandomData(keys, numOps)
+	testutil.BenchmarkCache(b, init, "Zipf", 512, numOps, zipFData)
+	testutil.BenchmarkCache(b, init, "Random", 512, numOps, randomData)
+}
+
+// BenchmarkLRUWith256 runs a benchmark test for the sharded LRU instance
+// with 256 sharded [lrucore.LRUCore] instances.
+func BenchmarkLRUWith256(b *testing.B) {
+	var init testutil.TestInit = func(capacity int) testutil.CacheTest[int, testutil.User] {
+		cache, err := tlru.New[int, testutil.User](capacity, tlru.WithShards(256))
+		if err != nil {
+			b.Fatalf("[ERROR] could not initialize Cache instance: %v", err)
+		}
+		return cache
+	}
+
+	keys := 16384
+	numOps := 2 << 24
+
+	zipFData := testutil.GenerateZipfData(keys, numOps)
+	randomData := testutil.GenerateRandomData(keys, numOps)
+	testutil.BenchmarkCache(b, init, "Zipf", 512, numOps, zipFData)
+	testutil.BenchmarkCache(b, init, "Random", 512, numOps, randomData)
 }

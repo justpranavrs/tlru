@@ -17,8 +17,8 @@ type User struct {
 
 // GenerateZipfData creates an array of CacheOp.
 // uses Zipf's distribution to simulate real data.
-func GenerateZipfData(keys int, benchOpsSize int) []CacheOp {
-	ops := make([]CacheOp, benchOpsSize)
+func GenerateZipfData(keys int, numOps int) []CacheOp {
+	ops := make([]CacheOp, numOps)
 
 	rng := rand.New(rand.NewPCG(18, 5))
 	zipF := rand.NewZipf(rng, 1.05, 1, uint64(keys))
@@ -42,7 +42,7 @@ func GenerateZipfData(keys int, benchOpsSize int) []CacheOp {
 		}
 	}
 
-	rand.Shuffle(benchOpsSize, func(i, j int) {
+	rand.Shuffle(numOps, func(i, j int) {
 		ops[i], ops[j] = ops[j], ops[i]
 	})
 	return ops
@@ -50,8 +50,8 @@ func GenerateZipfData(keys int, benchOpsSize int) []CacheOp {
 
 // GenerateRandomData creates an array of CacheOp.
 // using pseudo random number generators
-func GenerateRandomData(keys int, benchOpsSize int) []CacheOp {
-	ops := make([]CacheOp, benchOpsSize)
+func GenerateRandomData(keys int, numOps int) []CacheOp {
+	ops := make([]CacheOp, numOps)
 
 	for i := range ops {
 		key := rand.IntN(keys)
@@ -72,7 +72,7 @@ func GenerateRandomData(keys int, benchOpsSize int) []CacheOp {
 		}
 	}
 
-	rand.Shuffle(benchOpsSize, func(i, j int) {
+	rand.Shuffle(numOps, func(i, j int) {
 		ops[i], ops[j] = ops[j], ops[i]
 	})
 	return ops

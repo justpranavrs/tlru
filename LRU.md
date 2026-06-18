@@ -1,0 +1,75 @@
+## Introduction
+Hello, This document is designed to help you get started with `tlru` and how to use `tlru.LRU` to its full capacity.
+
+## Table of Contents
+- [Getting Started](#getting-started)
+- [Customizing the Number of Shards](#customizing-the-number-of-shards)
+- [Customizing the MuxHash Algorithm](#customizing-the-muxhash-algorithm)
+    - [Using the `tlru/mux` package](#using-the-tlrumux-package)
+    - [Using a customized mux hash algorithm](#using-a-customized-mux-hash-algorithm)
+- [Experimental Features](#experimental-features)
+
+### Getting Started
+This is a detailed walkthrough on how to get started with `tlru`.
+
+The choice of using either `tlru.LRU` or `lrucore.LRUCore` depends on 
+- `tlru.LRU` works on `shard-based local eviction`. It consists of multiple `lrucore.LRUCore` instances known as `shards`. It does not care about the globally oldest key. While this does go around the textbook definition of LRU Cache, in practical cases, it gives `higher performance on high concurrency workloads` compared to its parent. It is not limited by any mutual extension locks, because of its `sharded architecture`. For more details on how sharded architectures work, refer `database sharding` [here](https://www.geeksforgeeks.org/system-design/database-sharding-a-system-design-concept/).
+- Its parent, `lrucore.LRUCore` works on the pure LRU Cache definition, it evicts the `globally oldest key`. It is only useful in scenarios where this matters. It performs a bit slower because of mutual extension locks, `sync.Mutex` for majority of its operations.
+
+A simple `tlru.LRU` instance can be created using the `tlru.New` constructor. It takes in the cache capacity as its argument.
+```go
+cache, err := tlru.New[int, int](25600)
+```
+The `[int, int]` is use of Go Generics, introduced in `Go 1.18`. Refer [here](https://go.dev/doc/tutorial/generics).
+
+The above instance has a default of `128` shards, distributed with a capacity of 200 each, `25600 / 128 = 200`. 
+
+If the shards were not a perfect divisible of the capacity, the remainder will go to some of the shards, leaving an uneven distribution. It is recommended to provide the number of shards as a factor of the capacity for `even distributions`.
+
+### Customizing the Number of Shards
+To customize the number of shards, the `WithShards` method has to be used as shown below.
+```go
+cache, err := tlru.New[int, int](25600, tlru.WithShards(64))
+```
+The above snippet creates `64` instances instead of 128, by distributing 400 capacity to each instance.
+
+**NOTE**: Increasing the number of shards will result in better speed but at the cost of losing the core feature of LRU. It will lead to immature evictions.
+
+### Customizing the MuxHash Algorithm
+#### Using the `tlru/mux` package
+To customize the mux hashing algorithm, the `WithMux` method has to be used as shown below.
+```go
+capacity := 25600
+fnvMux := mux.NewF32[int](capacity)
+cache, err := tlru.New[int, string](capacity, tlru.WithMux[int](fnvMux.Get))
+```
+The above snippet uses the FNV-1a algorithm, than the default xxHash32 algorithm.
+Below are the given algorithms currently in the `tlru/mux` package:
+    - `FNV-1a`
+    - `xxHash32`
+
+#### Using a customized mux hash algorithm
+To use a custom mux hash algorithm, it has to be of type `mux.MuxHash` which is,
+```go
+type MuxHash[K comparable] func(key K) (uint32, bool)
+```
+
+Here is a basic implementation of a MuxHash
+```go
+nShards := 128 
+
+// The hashing algorithm must return a number of uint32 type between 0 and nShards-1.
+func CustomMuxHash[K comparable](key int) (uint32, bool) {
+	return bits.RotateLeft32(uint32(key) & (nShards-1), 16), true
+}
+```
+As you can clearly see, the above snippet is a terrible example for a custom hash algorithm, it works but at the same time, it absolutely clearly does not. But it demonstrates the example of how to create a `mux.MuxHash` to be able to use it in `tlru.LRU`
+```go
+cache, err := tlru.New[int, string](25600, tlru.WithMux(CustomMuxHash[int]))
+```
+
+### Experimental Features
+Stated below are the current experimental features:
+- `Compaction`: It was initially built to fix memory fragmentation in an expensive O(N) operation. It takes the doubly-linked list and places it linearly back in the array to help CPU's L1/L2 cache work better. But it did not produce better results when triggered automatically. Now it can be manually called using `tlru.LRU` or `lrucore.LRUCore`. It might need better experimentation to get the desired output.
+
+You can look at more examples [here](./lru_example_test.go)

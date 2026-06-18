@@ -60,8 +60,6 @@ func NewX32[K comparable](num int) MuxX32[K] {
 func (m *MuxX32[K]) Get(key K) (uint32, bool) {
 	var hash uint32
 	switch t := any(key).(type) {
-	case MuxHash:
-		return t.Hash(), true
 	case string:
 		hash = m.xxHString(t)
 	case bool:

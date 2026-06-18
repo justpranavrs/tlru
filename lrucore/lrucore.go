@@ -63,7 +63,7 @@ type node[K comparable, V any] struct {
 
 // New creates an instance of [LRUCore] using the given capacity.
 //
-// Returns an [err.ErrCoreInvalidCapacity] if the capacity is less than 2.
+// Returns an [errs.ErrCoreInvalidCapacity] if the capacity is less than 2.
 func New[K comparable, V any](capacity int) (*LRUCore[K, V], error) {
 	if capacity < 2 { // For capacity 1, a variable can be used.
 		return nil, errs.ErrCoreInvalidCapacity

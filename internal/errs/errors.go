@@ -13,6 +13,6 @@ var (
 	// ErrInvalidCapacity is returned by New when the maximum cache capacity is not greater than the number of shards.
 	ErrInvalidCapacity = errors.New("invalid LRU cache capacity: must be greater than the number of shards")
 
-	// ErrNoShards is returned by New when the number of shards is less than 1
-	ErrNoShards = errors.New("invalid number of shards: must be greater than 0")
+	// ErrInvalidShards is returned by New when the number of shards exceeds [uint32] range.
+	ErrInvalidShards = errors.New("invalid number of shards: must be in the range of uint32 and greater than 0")
 )
