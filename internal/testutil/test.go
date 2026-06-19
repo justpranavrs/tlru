@@ -21,9 +21,9 @@ type CacheTest[K comparable, V any] interface {
 	Contains(key K) bool
 	Flush()
 	Get(key K) (V, bool)
-	GetQuiet(key K) (V, bool)
+	Peek(key K) (V, bool)
 	Put(key K, value V)
-	PutGrows(key K, value V) bool
+	PutGrew(key K, value V) bool
 	Size() int
 }
 
@@ -57,8 +57,8 @@ func TestCache(t *testing.T, ops []testCacheOp, init TestInit) {
 			if ok && val != op.expectedValue {
 				t.Fatalf("\n[ERROR] unexpected value found, expected : %s, value : %s, tick: %d", op.expectedValue.Name, val.Name, i)
 			}
-		case opGetQuiet:
-			val, ok := cache.GetQuiet(op.key)
+		case opPeek:
+			val, ok := cache.Peek(op.key)
 			if ok != op.expectedBool {
 				t.Fatalf("\n[ERROR] invalid presence of key, expected : %t, tick: %d", ok, i)
 			}
@@ -106,10 +106,11 @@ func TestRaceCache(t *testing.T, cache CacheTest[int, User], keys int, numOps in
 			}
 		}(w)
 	}
+	wg.Wait()
 }
 
 // FuzzCache runs a Fuzz test on the Cache instance.
-func FuzzCache(f *testing.F, cache CacheTest[int, User], numOps int, nBytes int, capacity int, shards uint32) {
+func FuzzCache(f *testing.F, cache CacheTest[int, User], numOps int, nBytes int, capacity int, shards int) {
 	keys := mathutil.NextPowerOf2(1 << ((nBytes << 3) - 4)) // round keys to the next power of 2
 	// 4 is for 16 actions in actions array
 
@@ -132,7 +133,7 @@ func FuzzCache(f *testing.F, cache CacheTest[int, User], numOps int, nBytes int,
 		size := make([]int, shards) // to track size in o(1)
 		totalSize := 0
 
-		mux := TestHash(shards - 1)
+		mux := TestMux(uint32(shards) - 1)
 
 		for i := range keys {
 			tick[i] = -1
@@ -175,8 +176,8 @@ func FuzzCache(f *testing.F, cache CacheTest[int, User], numOps int, nBytes int,
 						t.Fatalf("\n[ERROR] unexpected value found in [GET], tick: %d", tk)
 					}
 				}
-			case opGetQuiet:
-				val, ok := cache.GetQuiet(key)
+			case opPeek:
+				val, ok := cache.Peek(key)
 				if ok != isCached {
 					t.Fatalf("\n[ERROR] invalid presence of key in [GET QUIET], expected: %t, tick: %d", ok, tk)
 				}
@@ -184,7 +185,7 @@ func FuzzCache(f *testing.F, cache CacheTest[int, User], numOps int, nBytes int,
 					t.Fatalf("\n[ERROR] unexpected value found in [GET QUIET], tick: %d", tk)
 				}
 			case opPut:
-				shard, _ := mux(key)
+				shard := mux(key)
 
 				cache.Put(key, user)
 				if !isCached {
@@ -274,7 +275,7 @@ func BenchmarkCache(b *testing.B, cache CacheTest[int, User], prefix string, cap
 		sink = user
 
 		ratio := float64(hits) / float64(total)
-		fmt.Printf("Hits : %d, Miss : %d, Ratio: %.4f\n", hits, total-hits, ratio)
+		fmt.Printf("\nHits : %d, Miss : %d, Ratio: %.4f\n", hits, total-hits, ratio)
 	})
 
 	b.Run(prefix+"_Mixed_Parallel", func(b *testing.B) {

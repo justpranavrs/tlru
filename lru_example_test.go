@@ -114,9 +114,9 @@ func ExampleLRU_Get() {
 	// [GET] could not find the key in the cache.
 }
 
-// ExampleLRU_GetQuiet shows an example of how GetQuiet works.
+// ExampleLRU_Peek shows an example of how Peek works.
 // It doesn't disturb the internal state of the cache.
-func ExampleLRU_GetQuiet() {
+func ExampleLRU_Peek() {
 	cache, err := tlru.New[int, Member](2, tlru.WithShards(1))
 	if err != nil {
 		fmt.Printf("[ERROR] could not initialize LRUCore instance: %v", err)
@@ -138,7 +138,7 @@ func ExampleLRU_GetQuiet() {
 		fmt.Printf("[GET] Name : %v | Email : %v\n", val.Name, val.Email)
 	}
 
-	val, ok = cache.GetQuiet(3)
+	val, ok = cache.Peek(3)
 	if !ok {
 		fmt.Println("[GET] could not find the key in the cache.")
 	} else {

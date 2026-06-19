@@ -7,12 +7,18 @@ package errs
 import "errors"
 
 var (
-	// ErrCoreInvalidCapacity is returned by New when the maximum cache capacity is less than 2.
-	ErrCoreInvalidCapacity = errors.New("invalid LRU cache capacity: must be in the range of uint32 and greater than 1")
+	// ErrCoreInvalidCapacity is returned by [lrucore.New] when the maximum cache capacity is not in [2, 2147483646].
+	ErrCoreInvalidCapacity = errors.New("invalid LRU cache capacity: must be in the range [2, 2147483646]")
 
-	// ErrInvalidCapacity is returned by New when the maximum cache capacity is not greater than the number of shards.
-	ErrInvalidCapacity = errors.New("invalid LRU cache capacity: must be in the range of uint32 and greater than the number of shards")
+	// ErrInvalidCapacity is returned by [tlru.New] when an invalid cache capacity is passed as argument.
+	ErrInvalidCapacity = errors.New("invalid LRU cache capacity: must be in the range of int32 and greater than the number of shards")
 
-	// ErrInvalidShards is returned by New when the number of shards exceeds [uint32] range.
-	ErrInvalidShards = errors.New("invalid number of shards: must be in the range of uint32 and greater than 0")
+	// ErrInvalidShards is returned by [tlru.New] when an invalid number of shards is passed using WithShards.
+	ErrInvalidShards = errors.New("invalid number of shards: must be in the range of int32 and greater than 0")
+
+	// ErrInvalidMuxF32 is returned by [mux.NewF32] when the key type is invalid for MuxF32.
+	ErrInvalidMuxF32 = errors.New("invalid key type for MuxF32: can be only string, bool, int, int8, int16, int32, uint, uint8, uint16, uint32, uintptr")
+
+	// ErrInvalidMuxX32 is returned by [mux.NewX32] when the key type is invalid for MuxX32.
+	ErrInvalidMuxX32 = errors.New("invalid key type for MuxX32: can be only string, bool, int, int8, int16, int32, uint, uint8, uint16, uint32, uintptr")
 )

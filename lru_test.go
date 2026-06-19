@@ -39,7 +39,7 @@ func TestRaceLRU(t *testing.T) {
 // FuzzLRU runs a fuzz test for the sharded LRU instance.
 func FuzzLRU(f *testing.F) {
 	cache, err := tlru.New[int, testutil.User](512,
-		tlru.WithMux(testutil.TestHash(tlru.DefaultShards-1)),
+		tlru.WithMux(testutil.TestMux(uint32(tlru.DefaultShards)-1)),
 	)
 	if err != nil {
 		f.Fatalf("[ERROR] could not initialize Cache instance: %v", err)

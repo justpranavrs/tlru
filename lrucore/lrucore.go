@@ -5,8 +5,8 @@
 package lrucore
 
 import (
+	"math"
 	"sync"
-	"sync/atomic"
 
 	"github.com/justpranavrs/tlru/internal/errs"
 )
@@ -28,12 +28,8 @@ type LRUCore[K comparable, V any] struct {
 	// It is an array of [node].
 	nodes []node[K, V]
 
-	// size measures the current allocated space of the cache.
-	// It uses atomic.Int32 to not have mutex locks during Size().
-	size atomic.Int32
-
 	// capacity represents the maximum allocated space for the cache.
-	capacity int32
+	capacity int
 
 	// tail represents the last index in the nodes array.
 	// It has a value of capacity + 1.
@@ -63,24 +59,23 @@ type node[K comparable, V any] struct {
 
 // New creates an instance of [LRUCore] using the given capacity.
 //
-// Returns an [errs.ErrCoreInvalidCapacity] if the capacity is less than 2.
+// Returns an [errs.ErrCoreInvalidCapacity] if the capacity is not in [2, 2147483646].
 func New[K comparable, V any](capacity int) (*LRUCore[K, V], error) {
-	if capacity < 2 { // For capacity 1, a variable can be used.
+	if capacity < 2 || (capacity > math.MaxInt32-2) { // For capacity 1, a variable can be used.
 		return nil, errs.ErrCoreInvalidCapacity
 	}
-	cap := int32(capacity)
-	tail := 1 + cap
+	tail := 1 + int32(capacity)
 
 	// allocate the initial nodes array with a size of 2+cap
-	nodes := make([]node[K, V], 2+cap)
+	nodes := make([]node[K, V], 2+capacity)
 	nodes[0].next = tail
 	nodes[tail].prev = 0
 
 	// lru
 	lru := &LRUCore[K, V]{
-		hash:     make(map[K]int32, cap),
+		hash:     make(map[K]int32, capacity),
 		nodes:    nodes,
-		capacity: cap,
+		capacity: capacity,
 		tail:     tail,
 		free:     0,
 	}
@@ -89,7 +84,7 @@ func New[K comparable, V any](capacity int) (*LRUCore[K, V], error) {
 
 // Capacity returns the maximum allocated capacity of the LRU cache.
 func (l *LRUCore[K, V]) Capacity() int {
-	return int(l.capacity)
+	return l.capacity
 }
 
 // Compaction is done to avoid memory fragmentation in the nodes array over time.
@@ -102,7 +97,7 @@ func (l *LRUCore[K, V]) Compaction() {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	if l.size.Load() == 1 { // no compaction can be done
+	if len(l.hash) <= 1 { // no compaction can be done
 		return
 	}
 	out := make([]node[K, V], 2+l.capacity)
@@ -127,7 +122,7 @@ func (l *LRUCore[K, V]) Compaction() {
 	out[l.tail].prev = idx - 1
 	out[idx-1].next = l.tail
 
-	if l.size.Load() < l.capacity { // set free index
+	if len(l.hash) < l.capacity { // set free index
 		l.free = idx - 1
 	} else {
 		l.free = -1
@@ -158,7 +153,6 @@ func (l *LRUCore[K, V]) Flush() {
 
 	l.nodes[0].next = l.tail
 	l.nodes[l.tail].prev = 0
-	l.size.Store(0)
 	l.free = 0
 }
 
@@ -180,10 +174,10 @@ func (l *LRUCore[K, V]) Get(key K) (V, bool) {
 	return val, true
 }
 
-// GetQuiet retrieves the cache value without updating it
+// Peek retrieves the cache value without updating it
 // to be the most recently used.
 // It returns false if the key is not found.
-func (l *LRUCore[K, V]) GetQuiet(key K) (V, bool) {
+func (l *LRUCore[K, V]) Peek(key K) (V, bool) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
@@ -196,24 +190,24 @@ func (l *LRUCore[K, V]) GetQuiet(key K) (V, bool) {
 
 // Put adds a new value to the cache with the given key.
 func (l *LRUCore[K, V]) Put(key K, value V) {
-	l.PutGrows(key, value)
+	l.PutGrew(key, value)
 }
 
-// PutGrows adds a new value to the cache with the given key.
+// PutGrew adds a new value to the cache with the given key.
 // It returns true if size of the cache increased, else returns false.
-func (l *LRUCore[K, V]) PutGrows(key K, value V) bool {
+func (l *LRUCore[K, V]) PutGrew(key K, value V) bool {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	var grow bool
+	var grew bool
 	curr, ok := l.hash[key]
 	if !ok { // not present in cache
-		if l.size.Load() == l.capacity {
+		if len(l.hash) == l.capacity {
 			l.removeOld()
-			grow = false
+			grew = false
 		} else {
 			l.free++
-			grow = true
+			grew = true
 		}
 		l.addKey(key, value)
 	} else { // present in cache, just update values
@@ -222,16 +216,16 @@ func (l *LRUCore[K, V]) PutGrows(key K, value V) bool {
 			l.remove(curr)
 			l.makeRecent(curr)
 		}
-		grow = false
+		grew = false
 	}
-	return grow
+	return grew
 }
 
 // Size returns the current size of the LRU cache.
 // It is a lock-free operation because it directly
 // fetches from the memory.
 func (l *LRUCore[K, V]) Size() int {
-	return int(l.size.Load())
+	return len(l.hash)
 }
 
 // addKey adds the cache with the given key and cache value.
@@ -246,7 +240,6 @@ func (l *LRUCore[K, V]) addKey(key K, value V) {
 	l.nodes[l.tail].prev = l.free
 
 	l.hash[key] = l.free
-	l.size.Add(1)
 }
 
 // makeRecent sets the key as 'Most Recently Used'.
@@ -273,5 +266,4 @@ func (l *LRUCore[K, V]) removeOld() {
 
 	delete(l.hash, l.nodes[old].key)
 	l.free = old // set the next free index to the dropped cache value
-	l.size.Add(-1)
 }

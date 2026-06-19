@@ -4,6 +4,8 @@
 
 package testutil
 
+import "math"
+
 // methods enum
 const (
 	opInit = iota
@@ -11,7 +13,7 @@ const (
 	opContains
 	opFlush
 	opGet
-	opGetQuiet
+	opPeek
 	opPut
 	opSize
 )
@@ -20,7 +22,7 @@ const (
 // flush is removed because fuzz tests are for accuracy.
 var actions = []int{
 	opContains, opContains, opGet, opGet, opGet, opGet, opGet, opGet,
-	opContains, opGetQuiet, opGetQuiet, opPut, opPut, opPut, opPut, opSize,
+	opContains, opPeek, opPeek, opPut, opPut, opPut, opPut, opSize,
 }
 
 // CacheOp contains of the method (put or get) with key and value.
@@ -46,12 +48,12 @@ type testCacheOp struct {
 }
 
 // finds the evict index
-func evictKey(tick []int, shard uint32, keys int, mux func(int) (uint32, bool)) int {
+func evictKey(tick []int, shard uint32, keys int, mux func(int) uint32) int {
 	evictIdx := 0
-	evictTick := 1<<31 - 1
+	evictTick := math.MaxInt32 - 1
 
 	for idx := range keys {
-		sh, _ := mux(idx) // checks if it is the current shard.
+		sh := mux(idx) // checks if it is the current shard.
 		if sh != shard {
 			continue
 		}
@@ -65,15 +67,15 @@ func evictKey(tick []int, shard uint32, keys int, mux func(int) (uint32, bool)) 
 	return evictIdx
 }
 
-func TestHash(mask uint32) func(int) (uint32, bool) {
-	return func(key int) (uint32, bool) {
+func TestMux(mask uint32) func(int) uint32 {
+	return func(key int) uint32 {
 		var hash uint32 = 0
 		for i := 0; i < 8; i++ {
 			hash ^= uint32(key & 255)
 			key >>= 8
 			hash *= 16777619
 		}
-		return (hash & mask), true
+		return (hash & mask)
 	}
 }
 
@@ -93,7 +95,7 @@ var BasicTestData = []testCacheOp{
 	{method: opContains, key: 5, expectedBool: false},
 	{method: opGet, key: 1, expectedBool: true, expectedValue: User{Name: "justpranavrs", Email: "iliketlru@gmail.com"}},
 	{method: opSize, expectedNumber: 4},
-	{method: opGetQuiet, key: 4, expectedBool: true, expectedValue: User{Name: "golang-tlru", Email: "tlrupeace@gmail.com"}},
+	{method: opPeek, key: 4, expectedBool: true, expectedValue: User{Name: "golang-tlru", Email: "tlrupeace@gmail.com"}},
 	{method: opFlush},
 	{method: opGet, key: 2, expectedBool: false},
 	{method: opSize, expectedNumber: 0},
@@ -124,7 +126,7 @@ var AdvancedTestData = []testCacheOp{
 	// 4 2 1
 	{method: opSize, expectedNumber: 3},
 	{method: opContains, key: 4, expectedBool: true},
-	{method: opGetQuiet, key: 4, expectedBool: true, expectedValue: User{Name: "golang-tlru", Email: "tlrupeace@gmail.com"}},
+	{method: opPeek, key: 4, expectedBool: true, expectedValue: User{Name: "golang-tlru", Email: "tlrupeace@gmail.com"}},
 	{method: opCapacity, expectedNumber: 3},
 	{method: opContains, key: 2, expectedBool: true},
 	{method: opPut, key: 7, value: User{Name: "tlru", Email: "tlruiscool@gmail.com"}},
