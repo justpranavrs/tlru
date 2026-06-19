@@ -70,7 +70,7 @@ type Cache[K comparable, V any] interface {
 // routes it to a [lrucore.LRUCore] instance. LRU works on shard-local based eviction
 // not on globally oldest item in the cache.
 //
-// [mux.MuxHash] takes care of routing the shards to their containers consistently
+// [mux.Mux] takes care of routing the shards to their containers consistently
 // using its hashing algorithm. The default mux is [mux.MuxX32.Get].
 type LRU[K comparable, V any] struct {
 	// capacity represents the maximum allocated space for the LRU cache.
@@ -81,7 +81,7 @@ type LRU[K comparable, V any] struct {
 
 	// mux is the router for the shards in the cache array.
 	// It takes in a key K and outputs a hash [uint32]
-	mux func(key K) (uint32, bool)
+	mux mux.Mux[K]
 
 	// size measures the current allocated space of the cache.
 	// It uses atomic.Int32 to monitor without data races.
@@ -98,7 +98,7 @@ type config struct {
 type Option func(c *config) error
 
 // New creates a [LRU] instance with the given capacity and options. It creates
-// the required [lrucore.LRUCore] instances, initiates the [mux.MuxHash] for shard routing.
+// the required [lrucore.LRUCore] instances, initiates the [mux.Mux] for shard routing.
 //
 // Returns [errs.ErrInvalidShards] if shards is not greater than 0 and in [int32] range.
 //
@@ -121,12 +121,15 @@ func New[K comparable, V any](capacity int, opts ...Option) (*LRU[K, V], error) 
 	}
 
 	// set the mux hash
-	var hash mux.MuxHash[K]
+	var hash mux.Mux[K]
 	if cfg.mux != nil {
-		hash = cfg.mux.(mux.MuxHash[K])
+		hash = cfg.mux.(mux.Mux[K])
 	} else {
-		def := mux.NewX32[K](cfg.shards)
-		hash = def.Get
+		fun, err := mux.NewX32[K](cfg.shards)
+		if err != nil {
+			return nil, err
+		}
+		hash = fun
 	}
 
 	lru := &LRU[K, V]{
@@ -160,9 +163,6 @@ func New[K comparable, V any](capacity int, opts ...Option) (*LRU[K, V], error) 
 // WithShards assigns the [LRU] instance with num shards. Shards are separate instances
 // of [lrucore.LRUCore] to prevent mutex locks from slowing down the cache.
 //
-// For performance optimizations, number of shards are automatically rounded up
-// to the next power of 2.
-//
 // Returns [errs.ErrInvalidShards] if num is not in [int32] range or equals zero.
 func WithShards(num int) Option {
 	cnt := mathutil.NextPowerOf2(num)
@@ -175,9 +175,9 @@ func WithShards(num int) Option {
 	}
 }
 
-// WithMux requires a custom [mux.MuxHash] type function. It is used
+// WithMux requires a custom [mux.Mux] type function. It is used
 // with [LRU] to configure its mux, which is responsible for routing the shards.
-func WithMux[K comparable](cm mux.MuxHash[K]) Option {
+func WithMux[K comparable](cm mux.Mux[K]) Option {
 	return func(c *config) error {
 		c.mux = cm
 		return nil
@@ -203,10 +203,7 @@ func (l *LRU[K, V]) Compaction() {
 // by checking the correct sharded instance.
 // It does not update the key to recent status.
 func (l *LRU[K, V]) Contains(key K) bool {
-	shard, ok := l.mux(key)
-	if !ok {
-		return false
-	}
+	shard := l.mux(key)
 	return l.cache[shard].Contains(key)
 }
 
@@ -223,11 +220,7 @@ func (l *LRU[K, V]) Flush() {
 // It returns false if the key is not found.
 // It updates the key as 'recent' only in its respective shard.
 func (l *LRU[K, V]) Get(key K) (V, bool) {
-	shard, ok := l.mux(key)
-	if !ok {
-		return *new(V), false
-	}
-
+	shard := l.mux(key)
 	value, ok := l.cache[shard].Get(key)
 	if !ok {
 		return *new(V), false
@@ -239,11 +232,7 @@ func (l *LRU[K, V]) Get(key K) (V, bool) {
 // to be the most recently used.
 // It returns false if the key is not found.
 func (l *LRU[K, V]) Peek(key K) (V, bool) {
-	shard, ok := l.mux(key)
-	if !ok {
-		return *new(V), false
-	}
-
+	shard := l.mux(key)
 	value, ok := l.cache[shard].Peek(key)
 	if !ok {
 		return *new(V), false
@@ -262,12 +251,17 @@ func (l *LRU[K, V]) Put(key K, value V) {
 // It returns true if the size of the cache has grown, else returns false.
 // It evicts or updates locally on the shard, instead of global cache.
 func (l *LRU[K, V]) PutGrew(key K, value V) bool {
-	shard, _ := l.mux(key)
+	shard := l.mux(key)
 	if l.cache[shard].PutGrew(key, value) {
 		l.size.Add(1)
 		return true
 	}
 	return false
+}
+
+// Shards returns the number of sharded instances in the LRU cache.
+func (l *LRU[K, V]) Shards() int {
+	return len(l.cache)
 }
 
 // Size returns the current size of the LRU cache

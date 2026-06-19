@@ -9,9 +9,22 @@ import (
 	"encoding/binary"
 )
 
-// MuxHash is a function that takes in key K of type comparable and output
-// a hash of type [uint32]. It returns false, if it could not output a hash.
-type MuxHash[K comparable] func(key K) (uint32, bool)
+// Mux is a function that takes in key K of type comparable and output
+// a hash of type [uint32].
+type Mux[K comparable] func(K) uint32
+
+// MuxNumber consists of all primitive number types and all types derived from it.
+type MuxNumber interface {
+	int | int8 | int16 | int32 | int64 |
+		uint | uint8 | uint16 | uint32 | uint64 |
+		uintptr
+}
+
+// fastrange applies quick math instead of modulo to route
+// without overflowing index bounds.
+func fastrange(hash uint32, shards uint64) uint32 {
+	return uint32(uint64(hash) * shards >> 32)
+}
 
 // setSeed generates a random 32 bit number.
 func setSeed() uint32 {

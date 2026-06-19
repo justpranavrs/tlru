@@ -48,12 +48,12 @@ type testCacheOp struct {
 }
 
 // finds the evict index
-func evictKey(tick []int, shard uint32, keys int, mux func(int) (uint32, bool)) int {
+func evictKey(tick []int, shard uint32, keys int, mux func(int) uint32) int {
 	evictIdx := 0
 	evictTick := math.MaxInt32 - 1
 
 	for idx := range keys {
-		sh, _ := mux(idx) // checks if it is the current shard.
+		sh := mux(idx) // checks if it is the current shard.
 		if sh != shard {
 			continue
 		}
@@ -67,15 +67,15 @@ func evictKey(tick []int, shard uint32, keys int, mux func(int) (uint32, bool)) 
 	return evictIdx
 }
 
-func TestHash(mask uint32) func(int) (uint32, bool) {
-	return func(key int) (uint32, bool) {
+func TestMux(mask uint32) func(int) uint32 {
+	return func(key int) uint32 {
 		var hash uint32 = 0
 		for i := 0; i < 8; i++ {
 			hash ^= uint32(key & 255)
 			key >>= 8
 			hash *= 16777619
 		}
-		return (hash & mask), true
+		return (hash & mask)
 	}
 }
 

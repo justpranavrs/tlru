@@ -5,118 +5,110 @@
 package mux
 
 import (
-	"encoding/json"
-	"math"
+	"github.com/justpranavrs/tlru/internal/errs"
 )
 
 // FNV Prime for s = 5.
 const fnvPrime32 uint32 = 16777619
 
-// MuxF32 is utilized to route the incoming keys to their correct
-// shard in the LRU Cache. It uses the FNV-1a hash algorithm
-type MuxF32[K comparable] struct {
-	// offset is the FNV offset value.
+// NewF32 returns a [Mux[K]] which uses the FNV-1a hash algorithm with
+// a custom offset.
+//
+// Refer, https://www.ietf.org/archive/id/draft-eastlake-fnv-22.html
+func NewF32[K comparable](num int) (Mux[K], error) {
+	offset := setSeed() // offset is the FNV offset value.
 	// It is randomly generated instead of the given FNV offset value
 	// to ensure attackers don't brute force keys (Hash DOS) to force the
-	// MuxF32 to route all to the same shard.
-	offset uint32
+	// Mux[K] to route all to the same shard.
 
-	// mask is used to route the fnv hash to its correct shard
-	// using bitwise &.
-	mask uint32
-}
-
-// NewF32 creates a [MuxF32] instance with a randomly generated
-// FNV offset value and the mask set to (number of shards - 1).
-//
-// num must be a power of 2 or the Mux would not behave as intended.
-func NewF32[K comparable](num int) MuxF32[K] {
-	return MuxF32[K]{
-		offset: setSeed(),
-		mask:   uint32(num) - 1,
+	mux := getFnvMux[K](offset)
+	if mux == nil {
+		return *new(Mux[K]), errs.ErrInvalidMuxX32
 	}
+	return func(key K) uint32 {
+		hash := mux(key)
+		return fastrange(hash, uint64(num))
+	}, nil
 }
 
 // Get returns the shard number of the corresponding key.
-func (m *MuxF32[K]) Get(key K) (uint32, bool) {
-	switch t := any(key).(type) {
-	case string:
-		return m.fnvString(t)
-	case bool:
-		if t {
-			return 1 & m.mask, true
-		}
-		return 0, true
+func getFnvMux[K comparable](offset uint32) Mux[K] {
+	var mux any
 
+	switch any(*new(K)).(type) {
+	case string:
+		mux = fnvString(offset)
+	case bool:
+		mux = fnvBool()
 	// int
 	case int:
-		return m.fnvNumber(uint64(t), 8)
+		mux = fnvNumber[int](offset, 8)
 	case int8:
-		return m.fnvNumber(uint64(t), 1)
+		mux = fnvNumber[int8](offset, 1)
 	case int16:
-		return m.fnvNumber(uint64(t), 2)
+		mux = fnvNumber[int16](offset, 2)
 	case int32:
-		return m.fnvNumber(uint64(t), 4)
+		mux = fnvNumber[int32](offset, 4)
 	case int64:
-		return m.fnvNumber(uint64(t), 8)
+		mux = fnvNumber[int64](offset, 8)
 
 	// uint
 	case uint:
-		return m.fnvNumber(uint64(t), 8)
+		mux = fnvNumber[uint](offset, 8)
 	case uint8:
-		return m.fnvNumber(uint64(t), 1)
+		mux = fnvNumber[uint8](offset, 1)
 	case uint16:
-		return m.fnvNumber(uint64(t), 2)
+		mux = fnvNumber[uint16](offset, 2)
 	case uint32:
-		return m.fnvNumber(uint64(t), 4)
+		mux = fnvNumber[uint32](offset, 4)
 	case uint64:
-		return m.fnvNumber(t, 8)
+		mux = fnvNumber[uint64](offset, 8)
 	case uintptr:
-		return m.fnvNumber(uint64(t), 8)
-
-	case float32:
-		return m.fnvNumber(uint64(math.Float32bits(t)), 4)
-	case float64:
-		return m.fnvNumber(math.Float64bits(t), 8)
+		mux = fnvNumber[uintptr](offset, 8)
 
 	default:
-		buf, err := json.Marshal(key)
-		if err != nil {
-			return 0, false
+		return nil
+	}
+
+	if fun, ok := mux.(Mux[K]); ok {
+		return fun
+	}
+	return nil
+}
+
+// fnvString returns a [Mux[K]] implements FNV-1 for an input string.
+func fnvString(offset uint32) Mux[string] {
+	return func(s string) uint32 {
+		hash := offset
+		for i := 0; i < len(s); i++ {
+			hash ^= uint32(s[i])
+			hash *= fnvPrime32
 		}
-		return m.fnv(buf)
+		return hash
 	}
 }
 
-// fnv implements the Fowler-Noll-Vo hash algorithm for size s = 5.
-// Refer, https://www.ietf.org/archive/id/draft-eastlake-fnv-22.html
-func (m *MuxF32[K]) fnv(buf []byte) (uint32, bool) {
-	hash := m.offset
-	for _, b := range buf {
-		hash ^= uint32(b)
-		hash *= fnvPrime32
+// fnvNumber returns a [Mux[K]] which implements FNV-1a for all numbers.
+func fnvNumber[K MuxNumber](offset uint32, size int) Mux[K] {
+	return func(num K) uint32 {
+		hash := offset
+		key := uint64(num)
+
+		for i := 0; i < size; i++ {
+			hash ^= uint32(key & 255)
+			key >>= 8
+			hash *= fnvPrime32
+		}
+		return hash
 	}
-	return (hash & m.mask), true
 }
 
-// fnvString implements FNV-1a, and takes string as its input.
-func (m *MuxF32[K]) fnvString(s string) (uint32, bool) {
-	hash := m.offset
-	for i := 0; i < len(s); i++ {
-		hash ^= uint32(s[i])
-		hash *= fnvPrime32
+// fnvBool returns a [Mux[K]] which implements FNV-1a for booleans.
+func fnvBool() Mux[bool] {
+	return func(b bool) uint32 {
+		if b {
+			return 1
+		}
+		return 0
 	}
-	return (hash & m.mask), true
-}
-
-// fnvNumber implements FNV-1a for uint64, must convert number to uint64
-// before using this function.
-func (m *MuxF32[K]) fnvNumber(num uint64, size int) (uint32, bool) {
-	hash := m.offset
-	for i := 0; i < size; i++ {
-		hash ^= uint32(num & 255)
-		num >>= 8
-		hash *= fnvPrime32
-	}
-	return (hash & m.mask), true
 }

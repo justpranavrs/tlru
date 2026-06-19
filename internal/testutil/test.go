@@ -133,7 +133,7 @@ func FuzzCache(f *testing.F, cache CacheTest[int, User], numOps int, nBytes int,
 		size := make([]int, shards) // to track size in o(1)
 		totalSize := 0
 
-		mux := TestHash(uint32(shards) - 1)
+		mux := TestMux(uint32(shards) - 1)
 
 		for i := range keys {
 			tick[i] = -1
@@ -185,7 +185,7 @@ func FuzzCache(f *testing.F, cache CacheTest[int, User], numOps int, nBytes int,
 					t.Fatalf("\n[ERROR] unexpected value found in [GET QUIET], tick: %d", tk)
 				}
 			case opPut:
-				shard, _ := mux(key)
+				shard := mux(key)
 
 				cache.Put(key, user)
 				if !isCached {

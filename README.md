@@ -8,30 +8,35 @@
 #### **NOTE**: The current version has no support for `TTL`. It will be added in the future versions.
 
 #### **Built with Go 1.26. Supports Go 1.22+**
+
 ## Table of Contents
+
 - [Introduction](#introduction)
-    - [How does lrucore.LRUCore work?](#how-does-lrucorelrucore-work)
-	- [What is tlru.LRU?](#what-is-tlrulru)
+  - [How does lrucore.LRUCore work?](#how-does-lrucorelrucore-work)
+  - [What is tlru.LRU?](#what-is-tlrulru)
 - [Installation](#installation)
 - [Examples](#examples)
-    - [Basic LRU Cache](#basic-lru-cache)
-    - [Customization](#customization)
+  - [Basic LRU Cache](#basic-lru-cache)
+  - [Customization](#customization)
 - [Benchmarks](#benchmarks)
 - [License](#license)
 
 ## Introduction
+
 ### How does `lrucore.LRUCore` work?
+
 - The `lrucore.LRUCore` uses an array-based doubly linked list with int32 indices. This guarantees zero runtime allocations.
 - Each of these instances have a mutex lock to ensure safety in concurrent operations.
 - `lrucore.LRUCore` has Go's support for generics.
 
 ### What is `tlru.LRU`?
+
 - While `lrucore.LRUCore` is incredibly powerful, struggles under heavy concurrent workloads. That is where `tlru.LRU` shines. It uses a sharded architecture, consisting of many `lrucore.LRUCore` instances. Since each Instance is protected by a mutex lock, `tlru.LRU` doesn't need its own mutex lock.
 - It doesn't undergo a global based eviction. It uses a `shard-based local eviction` for its keys. The more the shards, the lesser the chance to evict the global least recently used key. To use the global based approach, use `lrucore.LRUCore`.
-- It uses a `mux.MuxHash` to route the key to one of its shards.
-- It has two options: 
+- It uses a `mux.Mux` to route the key to one of its shards.
+- It has two options:
   - `WithShards`: It allows the user to customize the number of shards `tlru.LRU` creates.
-  - `WithMux`: It allows the configuration of `mux.MuxHash`.
+  - `WithMux`: It allows the configuration of `mux.Mux`.
 
 For a detailed walkthrough, refer [here](./LRU.md)
 
@@ -42,8 +47,11 @@ go get -u github.com/justpranavrs/tlru@latest
 ```
 
 ## Examples
+
 It is very easy to setup a basic LRU cache instance.
+
 ### Basic LRU Cache
+
 ```go
 package main
 
@@ -71,15 +79,19 @@ func main() {
 ```
 
 ### Customization
+
 To customize the Cache
+
 ```go
 cache, err := tlru.New[int, User](cacheCapacity, tlru.WithShards(64))
 ```
+
 #### **Note** : For more examples, refer [here](./lru_example_test.go)
 
 ## Benchmarks
 
 #### Environment
+
 - os: archlinux/amd64
 - cpu : AMD Ryzen 7 260 w/ Radeon 780M Graphics
 
@@ -154,6 +166,7 @@ ok      github.com/justpranavrs/tlru/lrucore    40.171s
 ```
 
 ## License
+
 Copyright(c) 2026 [Pranav R S](https://github.com/justpranavrs)
 
 Licensed under [BSD-3-Clause](./LICENSE)
