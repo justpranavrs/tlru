@@ -4,19 +4,12 @@
 
 package mathutil
 
-// NextPower of 2 uses bit smearing to return the next higher power of 2.
-func NextPowerOf2(x int) int {
-	if x <= 0 {
-		return 0
-	} else if x >= 1<<30 {
-		return 1 << 30
-	}
+import "math/bits"
 
-	x--
-	x |= x >> 1
-	x |= x >> 2
-	x |= x >> 4
-	x |= x >> 8
-	x |= x >> 16
-	return x + 1
+// NextPower of 2 uses bit smearing to return the next higher power of 2.
+func NextPowerOf2(x uint) int {
+	if x == 0 {
+		return 0
+	}
+	return 1 << bits.Len(x - 1)
 }

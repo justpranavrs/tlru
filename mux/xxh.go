@@ -95,6 +95,10 @@ func xxHString(seed, acc1, acc2, acc3, acc4 uint32) Mux[string] {
 	return func(s string) uint32 {
 		// process 16 byte blocks, except the final block.
 		i := 0
+		acc1 := acc1
+		acc2 := acc2
+		acc3 := acc3
+		acc4 := acc4
 		for i < len(s)-(len(s)&15) {
 			acc1 = accumulate(acc1, s, i)
 			i += 4

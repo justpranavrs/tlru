@@ -5,8 +5,8 @@
 package testutil
 
 import (
-	"fmt"
 	"math/rand/v2"
+	"strconv"
 )
 
 // User defines the cache test value
@@ -25,7 +25,7 @@ func GenerateZipfData(keys int, numOps int) []CacheOp {
 
 	for i := range ops {
 		key := int(zipF.Uint64())
-		name := fmt.Sprintf("user_%d", key)
+		name := "tlru_user_" + strconv.Itoa(key)
 		var method int
 		if i&1 == 0 {
 			method = opGet
@@ -33,9 +33,9 @@ func GenerateZipfData(keys int, numOps int) []CacheOp {
 			method = opPut
 		}
 		ops[i] = CacheOp{
-			method: method,
-			key:    key,
-			value: User{
+			Method: method,
+			Key:    key,
+			Value: User{
 				Name:  name,
 				Email: name + "@gmail.com",
 			},
@@ -55,7 +55,7 @@ func GenerateRandomData(keys int, numOps int) []CacheOp {
 
 	for i := range ops {
 		key := rand.IntN(keys)
-		name := fmt.Sprintf("user_%d", key)
+		name := "tlru_user_" + strconv.Itoa(key)
 		var method int
 		if i&1 == 0 {
 			method = opGet
@@ -63,9 +63,9 @@ func GenerateRandomData(keys int, numOps int) []CacheOp {
 			method = opPut
 		}
 		ops[i] = CacheOp{
-			method: method,
-			key:    key,
-			value: User{
+			Method: method,
+			Key:    key,
+			Value: User{
 				Name:  name,
 				Email: name + "@gmail.com",
 			},

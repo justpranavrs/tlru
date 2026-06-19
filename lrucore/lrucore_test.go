@@ -24,8 +24,8 @@ func TestLRUCore(t *testing.T) {
 	testutil.TestCache(t, testutil.AdvancedTestData, init)
 }
 
-// TestRaceLRUCore runs a concurrency test for the core LRU instance.
-func TestRaceLRUCore(t *testing.T) {
+// TestRaceLRUCore_Int runs a concurrency test for the sharded LRU instance with int keys.
+func TestRaceLRUCore_Int(t *testing.T) {
 	cache, err := lrucore.New[int, testutil.User](512)
 	if err != nil {
 		t.Fatalf("[ERROR] could not initialize Cache instance: %v", err)
@@ -33,8 +33,59 @@ func TestRaceLRUCore(t *testing.T) {
 
 	keys := 16384
 	numOps := 1 << 24
+	numWorkers := 256
 
-	testutil.TestRaceCache(t, cache, keys, numOps, 64)
+	testutil.TestRaceCache(t, cache, keys, numOps, numWorkers, func(c testutil.CacheOp) int {
+		return c.Key
+	})
+}
+
+// TestRaceLRUCore_Int runs a concurrency test for the sharded LRU instance with int32 keys.
+func TestRaceLRUCore_Int32(t *testing.T) {
+	cacheInt32, err := lrucore.New[int32, testutil.User](512)
+	if err != nil {
+		t.Fatalf("[ERROR] could not initialize Cache instance: %v", err)
+	}
+
+	keys := 16384
+	numOps := 1 << 24
+	numWorkers := 256
+
+	testutil.TestRaceCache(t, cacheInt32, keys, numOps, numWorkers, func(c testutil.CacheOp) int32 {
+		return int32(c.Key)
+	})
+}
+
+// TestRaceLRUCore_Int runs a concurrency test for the sharded LRU instance with uint keys.
+func TestRaceLRUCore_Uint(t *testing.T) {
+	cacheUint, err := lrucore.New[uint, testutil.User](512)
+	if err != nil {
+		t.Fatalf("[ERROR] could not initialize Cache instance: %v", err)
+	}
+
+	keys := 16384
+	numOps := 1 << 24
+	numWorkers := 256
+
+	testutil.TestRaceCache(t, cacheUint, keys, numOps, numWorkers, func(c testutil.CacheOp) uint {
+		return uint(c.Key)
+	})
+}
+
+// TestRaceLRUCore_Int runs a concurrency test for the sharded LRU instance with string keys.
+func TestRaceLRUCore_String(t *testing.T) {
+	cacheStr, err := lrucore.New[uint, testutil.User](512)
+	if err != nil {
+		t.Fatalf("[ERROR] could not initialize Cache instance: %v", err)
+	}
+
+	keys := 16384
+	numOps := 1 << 24
+	numWorkers := 256
+
+	testutil.TestRaceCache(t, cacheStr, keys, numOps, numWorkers, func(c testutil.CacheOp) uint {
+		return uint(c.Key)
+	})
 }
 
 // FuzzLRUCore runs a fuzz test for the core LRU instance.

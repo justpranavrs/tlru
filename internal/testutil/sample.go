@@ -27,9 +27,9 @@ var actions = []int{
 
 // CacheOp contains of the method (put or get) with key and value.
 type CacheOp struct {
-	method int
-	key    int
-	value  User
+	Method int
+	Key    int
+	Value  User
 }
 
 // testCacheOp defines the structure of a unit test data.

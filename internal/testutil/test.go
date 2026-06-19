@@ -7,6 +7,7 @@ package testutil
 import (
 	"fmt"
 	"math/rand/v2"
+	"strconv"
 	"sync"
 	"testing"
 
@@ -78,9 +79,12 @@ func TestCache(t *testing.T, ops []testCacheOp, init TestInit) {
 	}
 }
 
-// TestRaceCache is the main concurrency check test.
+// TestRaceCache is the main concurrency check test for LRU.
 // It checks if it leads to data race with the -race flag.
-func TestRaceCache(t *testing.T, cache CacheTest[int, User], keys int, numOps int, numWorkers int) {
+func TestRaceCache[K comparable](
+	t *testing.T, cache CacheTest[K, User], keys int, 
+	numOps int, numWorkers int, getKey func(CacheOp) K,
+) {
 	data := GenerateZipfData(keys, numOps)
 	batchSize := (numOps / numWorkers)
 
@@ -98,10 +102,11 @@ func TestRaceCache(t *testing.T, cache CacheTest[int, User], keys int, numOps in
 			}
 
 			for i := st; i < en; i++ {
-				if data[i].method == opGet {
-					cache.Get(data[i].key)
+				key := getKey(data[i])
+				if data[i].Method == opGet {
+					cache.Get(key)
 				} else {
-					cache.Put(data[i].key, data[i].value)
+					cache.Put(key, data[i].Value)
 				}
 			}
 		}(w)
@@ -110,7 +115,10 @@ func TestRaceCache(t *testing.T, cache CacheTest[int, User], keys int, numOps in
 }
 
 // FuzzCache runs a Fuzz test on the Cache instance.
-func FuzzCache(f *testing.F, cache CacheTest[int, User], numOps int, nBytes int, capacity int, shards int) {
+func FuzzCache(
+	f *testing.F, cache CacheTest[int, User], numOps int, 
+	nBytes int, capacity int, shards int,
+) {
 	keys := mathutil.NextPowerOf2(1 << ((nBytes << 3) - 4)) // round keys to the next power of 2
 	// 4 is for 16 actions in actions array
 
@@ -153,7 +161,7 @@ func FuzzCache(f *testing.F, cache CacheTest[int, User], numOps int, nBytes int,
 			method := actions[op&actionMask] // since actions and keys are 2^n
 			key := op & keyMask
 
-			name := fmt.Sprintf("user_%d", key)
+			name := "tlru_user_" + strconv.Itoa(key)
 			user := User{
 				Name:  name,
 				Email: name + "@gmail.com",
@@ -212,8 +220,11 @@ func FuzzCache(f *testing.F, cache CacheTest[int, User], numOps int, nBytes int,
 	})
 }
 
-func BenchmarkCache(b *testing.B, cache CacheTest[int, User], prefix string, capacity int, numOps int, data []CacheOp) {
-	numOps = mathutil.NextPowerOf2(numOps)
+func BenchmarkCache(
+	b *testing.B, cache CacheTest[int, User], prefix string, capacity int, 
+	numOps int, data []CacheOp,
+) {
+	numOps = mathutil.NextPowerOf2(uint(numOps))
 	numOpsMask := numOps - 1
 	var sink User
 
@@ -224,7 +235,7 @@ func BenchmarkCache(b *testing.B, cache CacheTest[int, User], prefix string, cap
 
 		i := 0
 		for b.Loop() {
-			cache.Put(data[i].key, data[i].value)
+			cache.Put(data[i].Key, data[i].Value)
 			i = (i + 1) & numOpsMask
 		}
 	})
@@ -237,7 +248,7 @@ func BenchmarkCache(b *testing.B, cache CacheTest[int, User], prefix string, cap
 		i := 0
 		var user User
 		for b.Loop() {
-			user, _ = cache.Get(data[i].key)
+			user, _ = cache.Get(data[i].Key)
 			i = (i + 1) & numOpsMask
 		}
 		sink = user
@@ -248,7 +259,7 @@ func BenchmarkCache(b *testing.B, cache CacheTest[int, User], prefix string, cap
 		cache.Flush()
 
 		for i := 0; cache.Size() < capacity; i++ {
-			cache.Put(data[i].key, data[i].value)
+			cache.Put(data[i].Key, data[i].Value)
 		}
 		b.ResetTimer()
 
@@ -259,14 +270,14 @@ func BenchmarkCache(b *testing.B, cache CacheTest[int, User], prefix string, cap
 		var user User
 		for b.Loop() {
 			d := data[i]
-			if d.method == opGet {
-				val, ok := cache.Get(data[i].key)
+			if d.Method == opGet {
+				val, ok := cache.Get(data[i].Key)
 				if ok {
 					hits++
 					user = val
 				}
 			} else {
-				cache.Put(data[i].key, data[i].value)
+				cache.Put(data[i].Key, data[i].Value)
 			}
 			total++
 			i = (i + 1) & numOpsMask
@@ -283,7 +294,7 @@ func BenchmarkCache(b *testing.B, cache CacheTest[int, User], prefix string, cap
 		cache.Flush()
 
 		for i := 0; cache.Size() < capacity; i++ {
-			cache.Put(data[i].key, data[i].value)
+			cache.Put(data[i].Key, data[i].Value)
 		}
 		b.ResetTimer()
 		var user User
@@ -293,13 +304,13 @@ func BenchmarkCache(b *testing.B, cache CacheTest[int, User], prefix string, cap
 			var userP User
 			for p.Next() {
 				d := data[i]
-				if d.method == opGet {
-					val, ok := cache.Get(data[i].key)
+				if d.Method == opGet {
+					val, ok := cache.Get(data[i].Key)
 					if ok {
 						userP = val
 					}
 				} else {
-					cache.Put(data[i].key, data[i].value)
+					cache.Put(data[i].Key, data[i].Value)
 				}
 				i = (i + 1) & numOpsMask
 			}
