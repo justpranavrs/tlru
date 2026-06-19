@@ -4,6 +4,8 @@
 
 package testutil
 
+import "math"
+
 // methods enum
 const (
 	opInit = iota
@@ -48,7 +50,7 @@ type testCacheOp struct {
 // finds the evict index
 func evictKey(tick []int, shard uint32, keys int, mux func(int) (uint32, bool)) int {
 	evictIdx := 0
-	evictTick := 1<<31 - 1
+	evictTick := math.MaxInt32 - 1
 
 	for idx := range keys {
 		sh, _ := mux(idx) // checks if it is the current shard.

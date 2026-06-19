@@ -109,7 +109,7 @@ func (m *MuxF32[K]) fnvString(s string) (uint32, bool) {
 	return (hash & m.mask), true
 }
 
-// fnvNumber implements FNV-1a for uint6, must convert number to uint64
+// fnvNumber implements FNV-1a for uint64, must convert number to uint64
 // before using this function.
 func (m *MuxF32[K]) fnvNumber(num uint64, size int) (uint32, bool) {
 	hash := m.offset

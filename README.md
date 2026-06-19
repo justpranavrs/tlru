@@ -154,6 +154,6 @@ ok      github.com/justpranavrs/tlru/lrucore    40.171s
 ```
 
 ## License
-Copyright(c) 2026 Pranav R S
+Copyright(c) 2026 [Pranav R S](https://github.com/justpranavrs)
 
 Licensed under [BSD-3-Clause](./LICENSE)

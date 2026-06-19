@@ -70,34 +70,34 @@ func (m *MuxX32[K]) Get(key K) (uint32, bool) {
 
 	// int
 	case int:
-		hash = m.xxHNumber(uint64(t))
+		hash = m.xxHNumber(uint64(t), 8)
 	case int8:
-		hash = m.xxHNumber(uint64(t))
+		hash = m.xxHNumber(uint64(t), 1)
 	case int16:
-		hash = m.xxHNumber(uint64(t))
+		hash = m.xxHNumber(uint64(t), 2)
 	case int32:
-		hash = m.xxHNumber(uint64(t))
+		hash = m.xxHNumber(uint64(t), 4)
 	case int64:
-		hash = m.xxHNumber(uint64(t))
+		hash = m.xxHNumber(uint64(t), 8)
 
 	// uint
 	case uint:
-		hash = m.xxHNumber(uint64(t))
+		hash = m.xxHNumber(uint64(t), 8)
 	case uint8:
-		hash = m.xxHNumber(uint64(t))
+		hash = m.xxHNumber(uint64(t), 1)
 	case uint16:
-		hash = m.xxHNumber(uint64(t))
+		hash = m.xxHNumber(uint64(t), 2)
 	case uint32:
-		hash = m.xxHNumber(uint64(t))
+		hash = m.xxHNumber(uint64(t), 4)
 	case uint64:
-		hash = m.xxHNumber(t)
+		hash = m.xxHNumber(t, 8)
 	case uintptr:
-		hash = m.xxHNumber(uint64(t))
+		hash = m.xxHNumber(uint64(t), 8)
 
 	case float32:
-		hash = m.xxHNumber(uint64(math.Float32bits(t)))
+		hash = m.xxHNumber(uint64(math.Float32bits(t)), 8)
 	case float64:
-		hash = m.xxHNumber(math.Float64bits(t))
+		hash = m.xxHNumber(math.Float64bits(t), 8)
 
 	default:
 		b, err := json.Marshal(key)
@@ -201,8 +201,8 @@ func (m *MuxX32[K]) xxHString(s string) uint32 {
 }
 
 // xxHNumber implements xxHash32 for a number num and returns the output hash.
-func (m *MuxX32[K]) xxHNumber(num uint64) uint32 {
-	hash := m.seed + xxHashPrime5 + 8
+func (m *MuxX32[K]) xxHNumber(num uint64, size uint32) uint32 {
+	hash := m.seed + xxHashPrime5 + size
 
 	hash = bits.RotateLeft32((hash+(uint32(num)*xxHashPrime3)), 17) * xxHashPrime4
 	hash = bits.RotateLeft32((hash+(uint32(num>>32)*xxHashPrime3)), 17) * xxHashPrime4
