@@ -10,7 +10,6 @@ import (
 	"sync/atomic"
 
 	"github.com/justpranavrs/tlru/internal/errs"
-	"github.com/justpranavrs/tlru/internal/mathutil"
 	"github.com/justpranavrs/tlru/lrucore"
 	"github.com/justpranavrs/tlru/mux"
 )
@@ -99,6 +98,7 @@ type Option func(c *config) error
 
 // New creates a [LRU] instance with the given capacity and options. It creates
 // the required [lrucore.LRUCore] instances, initiates the [mux.Mux] for shard routing.
+// It defaults to the Mux with xxHash32 algorithm. Check `tlru/mux` package for alternatives.
 //
 // Returns [errs.ErrInvalidShards] if shards is not greater than 0 and in [int32] range.
 //
@@ -127,9 +127,14 @@ func New[K comparable, V any](capacity int, opts ...Option) (*LRU[K, V], error) 
 	} else {
 		fun, err := mux.NewX32[K](cfg.shards)
 		if err != nil {
-			return nil, err
+			if errors.Is(err, errs.ErrInvalidMuxX32) {
+				hash = mux.NewMH32[K](cfg.shards)
+			} else {
+				return nil, err
+			}
+		} else {
+			hash = fun
 		}
-		hash = fun
 	}
 
 	lru := &LRU[K, V]{
@@ -165,12 +170,11 @@ func New[K comparable, V any](capacity int, opts ...Option) (*LRU[K, V], error) 
 //
 // Returns [errs.ErrInvalidShards] if num is not in [int32] range or equals zero.
 func WithShards(num int) Option {
-	cnt := mathutil.NextPowerOf2(num)
 	return func(c *config) error {
-		if cnt < 1 || (cnt > 1<<32-1) {
+		if num < 1 || (num > 1<<32-1) {
 			return errs.ErrInvalidShards
 		}
-		c.shards = cnt
+		c.shards = num
 		return nil
 	}
 }

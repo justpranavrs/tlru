@@ -23,11 +23,11 @@ func NewF32[K comparable](num int) (Mux[K], error) {
 
 	mux := getFnvMux[K](offset)
 	if mux == nil {
-		return *new(Mux[K]), errs.ErrInvalidMuxX32
+		return *new(Mux[K]), errs.ErrInvalidMuxF32
 	}
 	return func(key K) uint32 {
 		hash := mux(key)
-		return fastrange(hash, uint64(num))
+		return fastrange(hash, num)
 	}, nil
 }
 

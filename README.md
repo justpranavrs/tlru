@@ -95,74 +95,107 @@ cache, err := tlru.New[int, User](cacheCapacity, tlru.WithShards(64))
 - os: archlinux/amd64
 - cpu : AMD Ryzen 7 260 w/ Radeon 780M Graphics
 
+#### Performance
+- `tlru.LRU` with `64` shards and `mux.NewF32` algorithm:
 ```
-goos: linux
-goarch: amd64
-pkg: github.com/justpranavrs/tlru
-cpu: AMD Ryzen 7 260 w/ Radeon 780M Graphics
+BenchmarkLRUWith64/Zipf_Puts-16                       31532216       37.47 ns/op       0 B/op       0 allocs/op
+BenchmarkLRUWith64/Zipf_Gets-16                      104158029       11.54 ns/op       0 B/op       0 allocs/op
+BenchmarkLRUWith64/Zipf_Mixed-16                      32247319       36.78 ns/op       0 B/op       0 allocs/op
+Hits : 10177212, Miss : 22070107, Ratio: 0.3156
 
-BenchmarkLRUWith64/Zipf_Puts-16                     33895142      35.50 ns/op       0 B/op       0 allocs/op
-BenchmarkLRUWith64/Zipf_Gets-16                    100000000      10.74 ns/op       0 B/op       0 allocs/op
-Hits : 10346504, Miss : 22689820, Ratio: 0.3132
+BenchmarkLRUWith64/Zipf_Mixed_Parallel-16             62996503       19.02 ns/op       0 B/op       0 allocs/op
 
-BenchmarkLRUWith64/Zipf_Mixed-16                    33036324      34.23 ns/op       0 B/op       0 allocs/op
-BenchmarkLRUWith64/Zipf_Mixed_Parallel-16           59677258      19.84 ns/op       0 B/op       0 allocs/op
-BenchmarkLRUWith64/Random_Puts-16                   28279300      42.84 ns/op       0 B/op       0 allocs/op
-BenchmarkLRUWith64/Random_Gets-16                  100000000      11.16 ns/op       0 B/op       0 allocs/op
-Hits : 530268, Miss : 33483160, Ratio: 0.0156
+BenchmarkLRUWith64/Random_Puts-16                     27204386       44.24 ns/op       0 B/op       0 allocs/op
+BenchmarkLRUWith64/Random_Gets-16                    100000000       11.57 ns/op       0 B/op       0 allocs/op
+BenchmarkLRUWith64/Random_Mixed-16                    32178608       37.22 ns/op       0 B/op       0 allocs/op
+Hits : 503870, Miss : 31674738, Ratio: 0.0157
 
-BenchmarkLRUWith64/Random_Mixed-16                  34013428      34.95 ns/op       0 B/op       0 allocs/op
-BenchmarkLRUWith64/Random_Mixed_Parallel-16         76379761      15.54 ns/op       0 B/op       0 allocs/op
+BenchmarkLRUWith64/Random_Mixed_Parallel-16           77972881       15.49 ns/op       0 B/op       0 allocs/op
+```
 
-BenchmarkLRU/Zipf_Puts-16                           32656112      36.36 ns/op       0 B/op       0 allocs/op
-BenchmarkLRU/Zipf_Gets-16                          100000000      11.24 ns/op       0 B/op       0 allocs/op
-Hits : 10665195, Miss : 23736553, Ratio: 0.3100
+- `tlru.LRU` with `64` shards and `mux.NewX32` algorithm:
+```
+BenchmarkLRUWith64/Zipf_Puts-16                       33432204       35.96 ns/op       0 B/op       0 allocs/op
+BenchmarkLRUWith64/Zipf_Gets-16                      100000000       11.19 ns/op       0 B/op       0 allocs/op
+BenchmarkLRUWith64/Zipf_Mixed-16                      33517881       36.02 ns/op       0 B/op       0 allocs/op
+Hits : 10505944, Miss : 23011937, Ratio: 0.3134
 
-BenchmarkLRU/Zipf_Mixed-16                          34401748      34.94 ns/op       0 B/op       0 allocs/op
-BenchmarkLRU/Zipf_Mixed_Parallel-16                 60444584      19.27 ns/op       0 B/op       0 allocs/op
-BenchmarkLRU/Random_Puts-16                         28685742      41.55 ns/op       0 B/op       0 allocs/op
-BenchmarkLRU/Random_Gets-16                        100000000      11.01 ns/op       0 B/op       0 allocs/op
-Hits : 565990, Miss : 35638611, Ratio: 0.0156
+BenchmarkLRUWith64/Zipf_Mixed_Parallel-16             64254285       18.47 ns/op       0 B/op       0 allocs/op
 
-BenchmarkLRU/Random_Mixed-16                        36204601      33.29 ns/op       0 B/op       0 allocs/op
-BenchmarkLRU/Random_Mixed_Parallel-16              100000000      11.78 ns/op       0 B/op       0 allocs/op
+BenchmarkLRUWith64/Random_Puts-16                     27679622       43.94 ns/op       0 B/op       0 allocs/op
+BenchmarkLRUWith64/Random_Gets-16                    100000000       11.24 ns/op       0 B/op       0 allocs/op
+BenchmarkLRUWith64/Random_Mixed-16                    31981122       35.51 ns/op       0 B/op       0 allocs/op
+Hits : 499739, Miss : 31481383, Ratio: 0.0156
 
-BenchmarkLRUWith256/Zipf_Puts-16                    34739044      37.05 ns/op       0 B/op       0 allocs/op
-BenchmarkLRUWith256/Zipf_Gets-16                    90376778      11.86 ns/op       0 B/op       0 allocs/op
-Hits : 8720847, Miss : 20926643, Ratio: 0.2942
+BenchmarkLRUWith64/Random_Mixed_Parallel-16           79188930       15.47 ns/op       0 B/op       0 allocs/op
+```
 
-BenchmarkLRUWith256/Zipf_Mixed-16                   29647490      37.26 ns/op       0 B/op       0 allocs/op
-BenchmarkLRUWith256/Zipf_Mixed_Parallel-16          73194765      16.23 ns/op       0 B/op       0 allocs/op
-BenchmarkLRUWith256/Random_Puts-16                  28679670      41.81 ns/op       0 B/op       0 allocs/op
-BenchmarkLRUWith256/Random_Gets-16                 100000000      11.42 ns/op       0 B/op       0 allocs/op
-Hits : 556574, Miss : 35059573, Ratio: 0.0156
+- `tlru.LRU` with `64` shards and `mux.NewMH32` algorithm:
+```
+BenchmarkLRUWith64/Zipf_Puts-16                       33054550       36.26 ns/op       0 B/op       0 allocs/op
+BenchmarkLRUWith64/Zipf_Gets-16                      100000000       11.28 ns/op       0 B/op       0 allocs/op
+BenchmarkLRUWith64/Zipf_Mixed-16                      33174410       35.66 ns/op       0 B/op       0 allocs/op
+Hits : 10369406, Miss : 22805004, Ratio: 0.3126
 
-BenchmarkLRUWith256/Random_Mixed-16                 35616147      32.98 ns/op       0 B/op       0 allocs/op
-BenchmarkLRUWith256/Random_Mixed_Parallel-16       100000000      10.06 ns/op       0 B/op       0 allocs/op
-PASS
-ok      github.com/justpranavrs/tlru    117.784s
+BenchmarkLRUWith64/Zipf_Mixed_Parallel-16             58955106       19.96 ns/op       0 B/op       0 allocs/op
 
----
+BenchmarkLRUWith64/Random_Puts-16                     27217233       44.25 ns/op       0 B/op       0 allocs/op
+BenchmarkLRUWith64/Random_Gets-16                    100000000       11.55 ns/op       0 B/op       0 allocs/op
+BenchmarkLRUWith64/Random_Mixed-16                    32497040       37.01 ns/op       0 B/op       0 allocs/op
+Hits : 507588, Miss : 31989452, Ratio: 0.0156
 
-goos: linux
-goarch: amd64
-pkg: github.com/justpranavrs/tlru/lrucore
-cpu: AMD Ryzen 7 260 w/ Radeon 780M Graphics
+BenchmarkLRUWith64/Random_Mixed_Parallel-16           77845632       15.53 ns/op       0 B/op       0 allocs/op
+```
 
-BenchmarkLRUCore/Zipf_Puts-16                       28624830      42.47 ns/op       0 B/op       0 allocs/op
-BenchmarkLRUCore/Zipf_Gets-16                      176645416       6.66 ns/op       0 B/op       0 allocs/op
-Hits : 9701277, Miss : 20902822, Ratio: 0.3170
+- `tlru.LRU` with `128` shards and `mux.NewX32` algorithm:
+```
+BenchmarkLRU/Zipf_Puts-16                             33516466       35.88 ns/op       0 B/op       0 allocs/op
+BenchmarkLRU/Zipf_Gets-16                            100000000       10.74 ns/op       0 B/op       0 allocs/op
+BenchmarkLRU/Zipf_Mixed-16                            34404482       34.58 ns/op       0 B/op       0 allocs/op
+Hits : 10630761, Miss : 23773721, Ratio: 0.3090
 
-BenchmarkLRUCore/Zipf_Mixed-16                      30604099      39.83 ns/op       0 B/op       0 allocs/op
-BenchmarkLRUCore/Zipf_Mixed_Parallel-16             12427209     100.40 ns/op       0 B/op       0 allocs/op
-BenchmarkLRUCore/Random_Puts-16                     18420439      59.85 ns/op       0 B/op       0 allocs/op
-BenchmarkLRUCore/Random_Gets-16                    173226816       6.78 ns/op       0 B/op       0 allocs/op
-Hits : 381034, Miss : 24014774, Ratio: 0.0156
+BenchmarkLRU/Zipf_Mixed_Parallel-16                   60228430       19.66 ns/op       0 B/op       0 allocs/op
 
-BenchmarkLRUCore/Random_Mixed-16                    24395808      48.63 ns/op       0 B/op       0 allocs/op
-BenchmarkLRUCore/Random_Mixed_Parallel-16           13277698     101.00 ns/op       0 B/op       0 allocs/op
-PASS
-ok      github.com/justpranavrs/tlru/lrucore    40.171s
+BenchmarkLRU/Random_Puts-16                           28159216       42.65 ns/op       0 B/op       0 allocs/op
+BenchmarkLRU/Random_Gets-16                          100000000       10.83 ns/op       0 B/op       0 allocs/op
+BenchmarkLRU/Random_Mixed-16                          34258018       33.99 ns/op       0 B/op       0 allocs/op
+Hits : 533000, Miss : 33725018, Ratio: 0.0156
+
+BenchmarkLRU/Random_Mixed_Parallel-16                100000000       11.66 ns/op       0 B/op       0 allocs/op
+```
+
+- `tlru.LRU` with `256` shards and `mux.NewX32` algorithm:
+```
+BenchmarkLRUWith256/Zipf_Puts-16                      34538334       34.77 ns/op       0 B/op       0 allocs/op
+BenchmarkLRUWith256/Zipf_Gets-16                     100000000       10.95 ns/op       0 B/op       0 allocs/op
+BenchmarkLRUWith256/Zipf_Mixed-16                     35645792       33.64 ns/op       0 B/op       0 allocs/op
+Hits : 10676624, Miss : 24969168, Ratio: 0.2995
+
+BenchmarkLRUWith256/Zipf_Mixed_Parallel-16            75248469       16.22 ns/op       0 B/op       0 allocs/op
+
+BenchmarkLRUWith256/Random_Puts-16                    28202634       42.61 ns/op       0 B/op       0 allocs/op
+BenchmarkLRUWith256/Random_Gets-16                   100000000       11.24 ns/op       0 B/op       0 allocs/op
+BenchmarkLRUWith256/Random_Mixed-16                   35532368       33.46 ns/op       0 B/op       0 allocs/op
+Hits : 557243, Miss : 34975125, Ratio: 0.0157
+
+BenchmarkLRUWith256/Random_Mixed_Parallel-16         121141429       9.901 ns/op       0 B/op       0 allocs/op
+```
+
+- `lrucore.LRUCore`:
+```
+BenchmarkLRUCore/Zipf_Puts-16                         28712246       41.79 ns/op       0 B/op       0 allocs/op
+BenchmarkLRUCore/Zipf_Gets-16                        198613611       6.069 ns/op       0 B/op       0 allocs/op
+BenchmarkLRUCore/Zipf_Mixed-16                        30072946       40.02 ns/op       0 B/op       0 allocs/op
+Hits : 9533449, Miss : 20539497, Ratio: 0.3170
+
+BenchmarkLRUCore/Zipf_Mixed_Parallel-16               11084142       91.50 ns/op       0 B/op       0 allocs/op
+
+BenchmarkLRUCore/Random_Puts-16                       21257362       56.26 ns/op       0 B/op       0 allocs/op
+BenchmarkLRUCore/Random_Gets-16                      193248979       6.135 ns/op       0 B/op       0 allocs/op
+BenchmarkLRUCore/Random_Mixed-16                      25733350       45.89 ns/op       0 B/op       0 allocs/op
+Hits : 402293, Miss : 25331057, Ratio: 0.0156
+
+BenchmarkLRUCore/Random_Mixed_Parallel-16             13872712       85.06 ns/op       0 B/op       0 allocs/op
 ```
 
 ## License

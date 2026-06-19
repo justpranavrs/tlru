@@ -22,8 +22,8 @@ type MuxNumber interface {
 
 // fastrange applies quick math instead of modulo to route
 // without overflowing index bounds.
-func fastrange(hash uint32, shards uint64) uint32 {
-	return uint32(uint64(hash) * shards >> 32)
+func fastrange(hash uint32, shards int) uint32 {
+	return uint32(uint64(hash) * uint64(shards) >> 32)
 }
 
 // setSeed generates a random 32 bit number.

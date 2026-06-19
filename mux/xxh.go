@@ -37,7 +37,7 @@ func NewX32[K comparable](shards int) (Mux[K], error) {
 	}
 	return func(key K) uint32 {
 		hash := mux(key)
-		return fastrange(hash, uint64(shards)) // fastrange is better than modulo operator
+		return fastrange(hash, shards) // fastrange is better than modulo operator
 	}, nil
 }
 

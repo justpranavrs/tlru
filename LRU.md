@@ -60,7 +60,8 @@ cache, err := tlru.New[int, string](capacity, tlru.WithMux(fnvMux))
 ```
 
 The above snippet uses the FNV-1a algorithm, than the default xxHash32 algorithm.
-Below are the given algorithms currently in the `tlru/mux` package: - `FNV-1a` - `xxHash32`
+Below are the given algorithms currently in the `tlru/mux` package: - `FNV-1a` - `xxHash32` - `hash/maphash`
+**NOTE**: The `hash/maphash` implementation, which is `mux.NewMH32` is compatible with all key types of type comparable, while the other two implementations lack support for floats and custom structs.
 
 #### Using a customized mux algorithm
 

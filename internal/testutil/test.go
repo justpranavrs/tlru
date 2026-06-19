@@ -275,7 +275,7 @@ func BenchmarkCache(b *testing.B, cache CacheTest[int, User], prefix string, cap
 		sink = user
 
 		ratio := float64(hits) / float64(total)
-		fmt.Printf("Hits : %d, Miss : %d, Ratio: %.4f\n", hits, total-hits, ratio)
+		fmt.Printf("\nHits : %d, Miss : %d, Ratio: %.4f\n", hits, total-hits, ratio)
 	})
 
 	b.Run(prefix+"_Mixed_Parallel", func(b *testing.B) {
