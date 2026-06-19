@@ -11,7 +11,7 @@
 
 #### **NOTE**: The current version has no support for `TTL`. It will be added in the future versions.
 
-#### **Built with Go 1.26. Supports Go 1.22+**
+#### **Built with Go 1.26. Supports Go 1.24+**
 
 ## Table of Contents
 
