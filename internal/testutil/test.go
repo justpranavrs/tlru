@@ -106,10 +106,11 @@ func TestRaceCache(t *testing.T, cache CacheTest[int, User], keys int, numOps in
 			}
 		}(w)
 	}
+	wg.Wait()
 }
 
 // FuzzCache runs a Fuzz test on the Cache instance.
-func FuzzCache(f *testing.F, cache CacheTest[int, User], numOps int, nBytes int, capacity int, shards uint32) {
+func FuzzCache(f *testing.F, cache CacheTest[int, User], numOps int, nBytes int, capacity int, shards int) {
 	keys := mathutil.NextPowerOf2(1 << ((nBytes << 3) - 4)) // round keys to the next power of 2
 	// 4 is for 16 actions in actions array
 
@@ -132,7 +133,7 @@ func FuzzCache(f *testing.F, cache CacheTest[int, User], numOps int, nBytes int,
 		size := make([]int, shards) // to track size in o(1)
 		totalSize := 0
 
-		mux := TestHash(shards - 1)
+		mux := TestHash(uint32(shards) - 1)
 
 		for i := range keys {
 			tick[i] = -1

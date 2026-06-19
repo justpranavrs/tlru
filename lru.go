@@ -6,6 +6,7 @@ package tlru
 
 import (
 	"errors"
+	"math"
 	"sync/atomic"
 
 	"github.com/justpranavrs/tlru/internal/errs"
@@ -16,7 +17,7 @@ import (
 
 // DefaultShards represents the number of shards allocated to LRU
 // if [WithShards] option is not configured.
-const DefaultShards uint32 = 128
+const DefaultShards int = 128
 
 // Cache defines the general implementation of a 'Least Recently Used' cache.
 // It has thread-safe operations.
@@ -82,13 +83,14 @@ type LRU[K comparable, V any] struct {
 	// It takes in a key K and outputs a hash [uint32]
 	mux func(key K) (uint32, bool)
 
-	// size measures the current allocated space of the cache
+	// size measures the current allocated space of the cache.
+	// It uses atomic.Int32 to monitor without data races.
 	size atomic.Int32
 }
 
 // config represents the configuration of [LRU]. It should be used with [Option].
 type config struct {
-	shards uint32
+	shards int
 	mux    any
 }
 
@@ -98,9 +100,9 @@ type Option func(c *config) error
 // New creates a [LRU] instance with the given capacity and options. It creates
 // the required [lrucore.LRUCore] instances, initiates the [mux.MuxHash] for shard routing.
 //
-// Returns [errs.ErrInvalidShards] if shards is not greater than 0 and in [uint32] range.
+// Returns [errs.ErrInvalidShards] if shards is not greater than 0 and in [int32] range.
 //
-// Returns [errs.ErrInvalidCapacity] if capacity is not in [uint32] range and greater than number
+// Returns [errs.ErrInvalidCapacity] if capacity is not in [int32] range and greater than number
 // of shards.
 func New[K comparable, V any](capacity int, opts ...Option) (*LRU[K, V], error) {
 	// build the config
@@ -114,32 +116,27 @@ func New[K comparable, V any](capacity int, opts ...Option) (*LRU[K, V], error) 
 		}
 	}
 
-	if capacity <= int(cfg.shards) {
-		return nil, errs.ErrInvalidShards
-	} else if capacity > 1<<31-1 {
+	if capacity <= int(cfg.shards) || (capacity > math.MaxInt32-1) {
 		return nil, errs.ErrInvalidCapacity
 	}
-
-	// retrieve the number of shards
-	nShards := int(cfg.shards)
 
 	// set the mux hash
 	var hash mux.MuxHash[K]
 	if cfg.mux != nil {
 		hash = cfg.mux.(mux.MuxHash[K])
 	} else {
-		def := mux.NewX32[K](nShards)
+		def := mux.NewX32[K](cfg.shards)
 		hash = def.Get
 	}
 
 	lru := &LRU[K, V]{
 		capacity: capacity,
-		cache:    make([]*lrucore.LRUCore[K, V], nShards),
+		cache:    make([]*lrucore.LRUCore[K, V], cfg.shards),
 		mux:      hash,
 	}
 
-	cap := capacity / nShards // create lrucore instances
-	rem := capacity % nShards
+	cap := capacity / cfg.shards // create lrucore instances
+	rem := capacity & (cfg.shards - 1)
 	for i := range rem {
 		c, err := lrucore.New[K, V](1 + cap)
 		if err != nil {
@@ -150,7 +147,7 @@ func New[K comparable, V any](capacity int, opts ...Option) (*LRU[K, V], error) 
 		}
 		lru.cache[i] = c
 	}
-	for i := rem; i < nShards; i++ {
+	for i := rem; i < cfg.shards; i++ {
 		c, err := lrucore.New[K, V](cap)
 		if err != nil {
 			return nil, err
@@ -166,14 +163,14 @@ func New[K comparable, V any](capacity int, opts ...Option) (*LRU[K, V], error) 
 // For performance optimizations, number of shards are automatically rounded up
 // to the next power of 2.
 //
-// Returns [errs.ErrInvalidShards] if num is not in [uint32] range or equals zero.
+// Returns [errs.ErrInvalidShards] if num is not in [int32] range or equals zero.
 func WithShards(num int) Option {
 	cnt := mathutil.NextPowerOf2(num)
 	return func(c *config) error {
-		if cnt < 1 || cnt > 1<<32-1 {
+		if cnt < 1 || (cnt > 1<<32-1) {
 			return errs.ErrInvalidShards
 		}
-		c.shards = uint32(cnt)
+		c.shards = cnt
 		return nil
 	}
 }

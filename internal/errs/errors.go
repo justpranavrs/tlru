@@ -7,12 +7,12 @@ package errs
 import "errors"
 
 var (
-	// ErrCoreInvalidCapacity is returned by New when the maximum cache capacity is less than 2.
-	ErrCoreInvalidCapacity = errors.New("invalid LRU cache capacity: must be in the range of uint32 and greater than 1")
+	// ErrCoreInvalidCapacity is returned by New when the maximum cache capacity is not in [2, 2147483646].
+	ErrCoreInvalidCapacity = errors.New("invalid LRU cache capacity: must be in the range [2, 2147483646]")
 
-	// ErrInvalidCapacity is returned by New when the maximum cache capacity is not greater than the number of shards.
-	ErrInvalidCapacity = errors.New("invalid LRU cache capacity: must be in the range of uint32 and greater than the number of shards")
+	// ErrInvalidCapacity is returned by New when the maximum cache capacity is not in [int32] range or greater than the number of shards.
+	ErrInvalidCapacity = errors.New("invalid LRU cache capacity: must be in the range of int32 and greater than the number of shards")
 
-	// ErrInvalidShards is returned by New when the number of shards exceeds [uint32] range.
-	ErrInvalidShards = errors.New("invalid number of shards: must be in the range of uint32 and greater than 0")
+	// ErrInvalidShards is returned by New when the number of shards exceeds [int32] range or equals zero.
+	ErrInvalidShards = errors.New("invalid number of shards: must be in the range of int32 and greater than 0")
 )
