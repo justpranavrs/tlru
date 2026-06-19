@@ -13,8 +13,8 @@ import (
 // a hash of type [uint32].
 type Mux[K comparable] func(K) uint32
 
-// MuxNumber consists of all primitive number types and all types derived from it.
-type MuxNumber interface {
+// muxNumber consists of all primitive number types and all types derived from it.
+type muxNumber interface {
 	int | int8 | int16 | int32 | int64 |
 		uint | uint8 | uint16 | uint32 | uint64 |
 		uintptr

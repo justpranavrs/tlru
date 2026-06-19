@@ -6,7 +6,7 @@ package mux
 
 import "hash/maphash"
 
-// NewMH32 returns a [Mux[K]] which uses the "hash/maphash"
+// NewMH32 returns a [Mux] which uses the "hash/maphash"
 // standard package. It is compatible with all key type of type comparable.
 func NewMH32[K comparable](num int) Mux[K] {
 	seed := maphash.MakeSeed()

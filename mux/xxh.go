@@ -17,7 +17,7 @@ const xxHashPrime3 uint32 = 3266489917
 const xxHashPrime4 uint32 = 668265263
 const xxHashPrime5 uint32 = 374761393
 
-// NewX32 returns a [Mux[K]] which uses the xxHash32 algorithm
+// NewX32 returns a [Mux] which uses the xxHash32 algorithm
 // with a randomly generated xxHash32 seed value
 // and initializes the accumulators based on the value.
 func NewX32[K comparable](shards int) (Mux[K], error) {
@@ -89,7 +89,7 @@ func getXXHMux[K comparable](seed, acc1, acc2, acc3, acc4 uint32) Mux[K] {
 	return nil
 }
 
-// xxHString returns a [Mux[K]] which implements xxHash32 for a
+// xxHString returns a [Mux] which implements xxHash32 for a
 // string s and returns the output hash.
 func xxHString(seed, acc1, acc2, acc3, acc4 uint32) Mux[string] {
 	return func(s string) uint32 {
@@ -129,9 +129,9 @@ func xxHString(seed, acc1, acc2, acc3, acc4 uint32) Mux[string] {
 	}
 }
 
-// xxHNumber returns a [Mux[K]] which implements xxHash32
+// xxHNumber returns a [Mux] which implements xxHash32
 // for a number num and returns the output hash.
-func xxHNumber[K MuxNumber](seed, size uint32) Mux[K] {
+func xxHNumber[K muxNumber](seed, size uint32) Mux[K] {
 	return func(num K) uint32 {
 		hash := seed + xxHashPrime5 + size
 
@@ -144,7 +144,7 @@ func xxHNumber[K MuxNumber](seed, size uint32) Mux[K] {
 	}
 }
 
-// xxHBool returns a [Mux[K]] which implements xxHash32
+// xxHBool returns a [Mux] which implements xxHash32
 // for a boolean b and returns the output hash.
 func xxHBool() Mux[bool] {
 	return func(b bool) uint32 {

@@ -11,7 +11,7 @@ import (
 // FNV Prime for s = 5.
 const fnvPrime32 uint32 = 16777619
 
-// NewF32 returns a [Mux[K]] which uses the FNV-1a hash algorithm with
+// NewF32 returns a [Mux] which uses the FNV-1a hash algorithm with
 // a custom offset.
 //
 // Refer, https://www.ietf.org/archive/id/draft-eastlake-fnv-22.html
@@ -19,7 +19,7 @@ func NewF32[K comparable](num int) (Mux[K], error) {
 	offset := setSeed() // offset is the FNV offset value.
 	// It is randomly generated instead of the given FNV offset value
 	// to ensure attackers don't brute force keys (Hash DOS) to force the
-	// Mux[K] to route all to the same shard.
+	// Mux to route all to the same shard.
 
 	mux := getFnvMux[K](offset)
 	if mux == nil {
@@ -76,7 +76,7 @@ func getFnvMux[K comparable](offset uint32) Mux[K] {
 	return nil
 }
 
-// fnvString returns a [Mux[K]] implements FNV-1 for an input string.
+// fnvString returns a [Mux] implements FNV-1 for an input string.
 func fnvString(offset uint32) Mux[string] {
 	return func(s string) uint32 {
 		hash := offset
@@ -88,8 +88,8 @@ func fnvString(offset uint32) Mux[string] {
 	}
 }
 
-// fnvNumber returns a [Mux[K]] which implements FNV-1a for all numbers.
-func fnvNumber[K MuxNumber](offset uint32, size int) Mux[K] {
+// fnvNumber returns a [Mux] which implements FNV-1a for all numbers.
+func fnvNumber[K muxNumber](offset uint32, size int) Mux[K] {
 	return func(num K) uint32 {
 		hash := offset
 		key := uint64(num)
@@ -103,7 +103,7 @@ func fnvNumber[K MuxNumber](offset uint32, size int) Mux[K] {
 	}
 }
 
-// fnvBool returns a [Mux[K]] which implements FNV-1a for booleans.
+// fnvBool returns a [Mux] which implements FNV-1a for booleans.
 func fnvBool() Mux[bool] {
 	return func(b bool) uint32 {
 		if b {
