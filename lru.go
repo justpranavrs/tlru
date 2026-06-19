@@ -45,17 +45,17 @@ type Cache[K comparable, V any] interface {
 	// It returns false if the key is not found.
 	Get(key K) (V, bool)
 
-	// GetQuiet retrieves the cache value without updating it
+	// Peek retrieves the cache value without updating it
 	// to be the most recently used.
 	// It returns false if the key is not found.
-	GetQuiet(key K) (V, bool)
+	Peek(key K) (V, bool)
 
 	// Put adds a new value to the cache with the given key.
 	Put(key K, value V)
 
-	// PutGrows adds a new value to the cache with the given key.
+	// PutGrew adds a new value to the cache with the given key.
 	// It returns true if the size of the cache has grown, else returns false.
-	PutGrows(key K, value V) bool
+	PutGrew(key K, value V) bool
 
 	// Size returns the current size of the LRU cache.
 	Size() int
@@ -235,16 +235,16 @@ func (l *LRU[K, V]) Get(key K) (V, bool) {
 	return value, true
 }
 
-// GetQuiet retrieves the cache value without updating it
+// Peek retrieves the cache value without updating it
 // to be the most recently used.
 // It returns false if the key is not found.
-func (l *LRU[K, V]) GetQuiet(key K) (V, bool) {
+func (l *LRU[K, V]) Peek(key K) (V, bool) {
 	shard, ok := l.mux(key)
 	if !ok {
 		return *new(V), false
 	}
 
-	value, ok := l.cache[shard].GetQuiet(key)
+	value, ok := l.cache[shard].Peek(key)
 	if !ok {
 		return *new(V), false
 	}
@@ -255,15 +255,15 @@ func (l *LRU[K, V]) GetQuiet(key K) (V, bool) {
 // It updates the key as 'recent' only in its respective shard.
 // It evicts the key only from the respective shard the key is linked to.
 func (l *LRU[K, V]) Put(key K, value V) {
-	l.PutGrows(key, value)
+	l.PutGrew(key, value)
 }
 
-// PutGrows adds a new value to the cache with the given key.
+// PutGrew adds a new value to the cache with the given key.
 // It returns true if the size of the cache has grown, else returns false.
 // It evicts or updates locally on the shard, instead of global cache.
-func (l *LRU[K, V]) PutGrows(key K, value V) bool {
+func (l *LRU[K, V]) PutGrew(key K, value V) bool {
 	shard, _ := l.mux(key)
-	if l.cache[shard].PutGrows(key, value) {
+	if l.cache[shard].PutGrew(key, value) {
 		l.size.Add(1)
 		return true
 	}

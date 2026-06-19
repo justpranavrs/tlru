@@ -13,7 +13,7 @@ const (
 	opContains
 	opFlush
 	opGet
-	opGetQuiet
+	opPeek
 	opPut
 	opSize
 )
@@ -22,7 +22,7 @@ const (
 // flush is removed because fuzz tests are for accuracy.
 var actions = []int{
 	opContains, opContains, opGet, opGet, opGet, opGet, opGet, opGet,
-	opContains, opGetQuiet, opGetQuiet, opPut, opPut, opPut, opPut, opSize,
+	opContains, opPeek, opPeek, opPut, opPut, opPut, opPut, opSize,
 }
 
 // CacheOp contains of the method (put or get) with key and value.
@@ -95,7 +95,7 @@ var BasicTestData = []testCacheOp{
 	{method: opContains, key: 5, expectedBool: false},
 	{method: opGet, key: 1, expectedBool: true, expectedValue: User{Name: "justpranavrs", Email: "iliketlru@gmail.com"}},
 	{method: opSize, expectedNumber: 4},
-	{method: opGetQuiet, key: 4, expectedBool: true, expectedValue: User{Name: "golang-tlru", Email: "tlrupeace@gmail.com"}},
+	{method: opPeek, key: 4, expectedBool: true, expectedValue: User{Name: "golang-tlru", Email: "tlrupeace@gmail.com"}},
 	{method: opFlush},
 	{method: opGet, key: 2, expectedBool: false},
 	{method: opSize, expectedNumber: 0},
@@ -126,7 +126,7 @@ var AdvancedTestData = []testCacheOp{
 	// 4 2 1
 	{method: opSize, expectedNumber: 3},
 	{method: opContains, key: 4, expectedBool: true},
-	{method: opGetQuiet, key: 4, expectedBool: true, expectedValue: User{Name: "golang-tlru", Email: "tlrupeace@gmail.com"}},
+	{method: opPeek, key: 4, expectedBool: true, expectedValue: User{Name: "golang-tlru", Email: "tlrupeace@gmail.com"}},
 	{method: opCapacity, expectedNumber: 3},
 	{method: opContains, key: 2, expectedBool: true},
 	{method: opPut, key: 7, value: User{Name: "tlru", Email: "tlruiscool@gmail.com"}},

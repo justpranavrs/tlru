@@ -21,9 +21,9 @@ type CacheTest[K comparable, V any] interface {
 	Contains(key K) bool
 	Flush()
 	Get(key K) (V, bool)
-	GetQuiet(key K) (V, bool)
+	Peek(key K) (V, bool)
 	Put(key K, value V)
-	PutGrows(key K, value V) bool
+	PutGrew(key K, value V) bool
 	Size() int
 }
 
@@ -57,8 +57,8 @@ func TestCache(t *testing.T, ops []testCacheOp, init TestInit) {
 			if ok && val != op.expectedValue {
 				t.Fatalf("\n[ERROR] unexpected value found, expected : %s, value : %s, tick: %d", op.expectedValue.Name, val.Name, i)
 			}
-		case opGetQuiet:
-			val, ok := cache.GetQuiet(op.key)
+		case opPeek:
+			val, ok := cache.Peek(op.key)
 			if ok != op.expectedBool {
 				t.Fatalf("\n[ERROR] invalid presence of key, expected : %t, tick: %d", ok, i)
 			}
@@ -176,8 +176,8 @@ func FuzzCache(f *testing.F, cache CacheTest[int, User], numOps int, nBytes int,
 						t.Fatalf("\n[ERROR] unexpected value found in [GET], tick: %d", tk)
 					}
 				}
-			case opGetQuiet:
-				val, ok := cache.GetQuiet(key)
+			case opPeek:
+				val, ok := cache.Peek(key)
 				if ok != isCached {
 					t.Fatalf("\n[ERROR] invalid presence of key in [GET QUIET], expected: %t, tick: %d", ok, tk)
 				}

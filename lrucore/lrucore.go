@@ -174,10 +174,10 @@ func (l *LRUCore[K, V]) Get(key K) (V, bool) {
 	return val, true
 }
 
-// GetQuiet retrieves the cache value without updating it
+// Peek retrieves the cache value without updating it
 // to be the most recently used.
 // It returns false if the key is not found.
-func (l *LRUCore[K, V]) GetQuiet(key K) (V, bool) {
+func (l *LRUCore[K, V]) Peek(key K) (V, bool) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
@@ -190,24 +190,24 @@ func (l *LRUCore[K, V]) GetQuiet(key K) (V, bool) {
 
 // Put adds a new value to the cache with the given key.
 func (l *LRUCore[K, V]) Put(key K, value V) {
-	l.PutGrows(key, value)
+	l.PutGrew(key, value)
 }
 
-// PutGrows adds a new value to the cache with the given key.
+// PutGrew adds a new value to the cache with the given key.
 // It returns true if size of the cache increased, else returns false.
-func (l *LRUCore[K, V]) PutGrows(key K, value V) bool {
+func (l *LRUCore[K, V]) PutGrew(key K, value V) bool {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	var grow bool
+	var grew bool
 	curr, ok := l.hash[key]
 	if !ok { // not present in cache
 		if len(l.hash) == l.capacity {
 			l.removeOld()
-			grow = false
+			grew = false
 		} else {
 			l.free++
-			grow = true
+			grew = true
 		}
 		l.addKey(key, value)
 	} else { // present in cache, just update values
@@ -216,9 +216,9 @@ func (l *LRUCore[K, V]) PutGrows(key K, value V) bool {
 			l.remove(curr)
 			l.makeRecent(curr)
 		}
-		grow = false
+		grew = false
 	}
-	return grow
+	return grew
 }
 
 // Size returns the current size of the LRU cache.
