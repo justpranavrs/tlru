@@ -9,6 +9,13 @@ import (
 	"strconv"
 )
 
+// CacheOp contains of the method (put or get) with key and value.
+type CacheOp struct {
+	Method int
+	Key    int
+	Value  User
+}
+
 // User defines the cache test value
 type User struct {
 	Name  string
