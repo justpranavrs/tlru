@@ -7,7 +7,7 @@
 [![License](https://img.shields.io/github/license/justpranavrs/tlru?color=56BEB8)](https://img.shields.io/github/license/justpranavrs/tlru?color=56BEB8)
 [![GitHub stars](https://img.shields.io/github/stars/justpranavrs/tlru)](https://github.com/justpranavrs/tlru/stargazers)
 
-`tlru` is a high-performance, array-based `LRU` cache for Go with **zero runtime allocations** and **zero dependencies**. It also supports utilizing multiple independent containers to eliminate lock contention and allow high-concurrency operations without bottlenecks.
+`tlru` is a high-performance, array-based `LRU` cache for Go with **zero runtime allocations** and **zero dependencies**. It also supports utilizing multiple independent shards to eliminate lock contention and allow high-concurrency operations without bottlenecks. It supports the use of operations for batches and allows a lot of customization, without compromising performance.
 
 #### **NOTE**: The current version has no support for `TTL`. It will be added in the future versions.
 
@@ -16,7 +16,7 @@
 ## Table of Contents
 
 - [Introduction](#introduction)
-  - [How does lrucore.LRUCore work?](#how-does-lrucorelrucore-work)
+  - [How does lrucore.Core work?](#how-does-lrucorelrucore-work)
   - [What is tlru.LRU?](#what-is-tlrulru)
 - [Installation](#installation)
 - [Examples](#examples)
@@ -27,27 +27,33 @@
 
 ## Introduction
 
-### How does `lrucore.LRUCore` work?
+### How does `lrucore.Core` work?
 
-- The `lrucore.LRUCore` uses an array-based doubly linked list with int32 indices. This guarantees zero runtime allocations.
+- The `lrucore.Core` uses an array-based doubly linked list with int32 indices. This guarantees zero runtime allocations.
 - Each of these instances have a mutex lock to ensure safety in concurrent operations.
-- `lrucore.LRUCore` has Go's support for generics.
+- `lrucore.Core` has Go's support for generics.
+- It has optimized batch operations like `GetMany` and `PutMany` which reduce the locking contention during high workloads. These operations also support callback functions which execute based on certain hook triggers during the transition in the internal state of the cache.
 
 ### What is `tlru.LRU`?
 
-- While `lrucore.LRUCore` is incredibly powerful, struggles under heavy concurrent workloads. That is where `tlru.LRU` shines. It uses a sharded architecture, consisting of many `lrucore.LRUCore` instances. Since each Instance is protected by a mutex lock, `tlru.LRU` doesn't need its own mutex lock.
-- It doesn't undergo a global based eviction. It uses a `shard-based local eviction` for its keys. The more the shards, the lesser the chance to evict the global least recently used key. To use the global based approach, use `lrucore.LRUCore`.
+- While `lrucore.Core` is incredibly powerful, struggles under heavy concurrent workloads. That is where `tlru.LRU` shines. It uses a sharded architecture, consisting of many `lrucore.Core` instances. Since each Instance is protected by a mutex lock, `tlru.LRU` doesn't need its own mutex lock.
+- It doesn't undergo a global based eviction. It uses a `shard-based local eviction` for its keys. The more the shards, the lesser the chance to evict the global least recently used key. To use the global based approach, use `lrucore.Core`.
 - It uses a `mux.Mux` to route the key to one of its shards.
 - It has two options:
   - `WithShards`: It allows the user to customize the number of shards `tlru.LRU` creates.
   - `WithMux`: It allows the configuration of `mux.Mux`.
+
+### What is a `mux.Mux`?
+- A Mux is a router for the shards which uses a hashing algorithm to distribute the keys evenly across the instances.
+- The default hashing algorithms provided in this package are `FNV-1a`, `xxHash32` and Go's `hash/maphash`. The last one has support for `float`, `complex` and `struct` which the `FNV-1a` and `xxHash32` don't provide.
+- `WithMux` option allows the configuration by passing a custom hash function of type `mux.Mux` to the `LRU`.
 
 For a detailed walkthrough, refer [here](./LRU.md)
 
 ## Installation
 
 ```bash
-go get -u github.com/justpranavrs/tlru@latest
+go get -u github.com/justpranavrs/tlru@v0.4.0
 ```
 
 ## Examples
@@ -98,6 +104,37 @@ cache, err := tlru.New[int, User](cacheCapacity, tlru.WithShards(64))
 
 - os: archlinux/amd64
 - cpu : AMD Ryzen 7 260 w/ Radeon 780M Graphics
+
+#### Competitors
+- `Gets - 50%, Puts - 50%`
+```
+Library          Operations       ns/op      B/op     allocs/op
+tlru.LRU		 69,126,327       17.81      0        0
+FreeLRU_Sharded  25,522,822       46.11      0        0
+Phuslu           60,684,256       19.44      0        0
+CCache            4,222,813      305.60     90        3
+Theine            8,056,616      143.70     16        0
+```
+
+- `Gets - 90%, Puts - 10%`
+```
+Library          Operations       ns/op      B/op     allocs/op
+tlru.LRU     	 61,858,590       17.47      0        0
+FreeLRU_Sharded  27,903,866       43.42      0        0
+Phuslu           74,030,343       17.16      0        0
+CCache            7,093,618      165.90     31        2
+Theine           16,673,943       82.08      2        0
+```
+
+- `Gets - 10%, Puts - 90%`
+```
+Library          Operations       ns/op      B/op     allocs/op
+TLRU_Sharded     64,692,157       23.82      0        0
+FreeLRU_Sharded  24,841,749       48.06      0        0
+Phuslu           62,875,437       20.51      0        0
+CCache            3,477,776      360.60    149        4
+Theine            6,261,631      180.00     24        0
+```
 
 #### Performance
 - `tlru.LRU` with `64` shards and `mux.NewF32` algorithm:
@@ -185,7 +222,7 @@ Hits : 557243, Miss : 34975125, Ratio: 0.0157
 BenchmarkLRUWith256/Random_Mixed_Parallel-16         121141429       9.901 ns/op       0 B/op       0 allocs/op
 ```
 
-- `lrucore.LRUCore`:
+- `lrucore.Core`:
 ```
 BenchmarkLRUCore/Zipf_Puts-16                         28712246       41.79 ns/op       0 B/op       0 allocs/op
 BenchmarkLRUCore/Zipf_Gets-16                        198613611       6.069 ns/op       0 B/op       0 allocs/op

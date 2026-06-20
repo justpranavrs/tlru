@@ -11,5 +11,5 @@ func NextPowerOf2(x uint) int {
 	if x == 0 {
 		return 0
 	}
-	return 1 << bits.Len(x - 1)
+	return 1 << bits.Len(x-1)
 }

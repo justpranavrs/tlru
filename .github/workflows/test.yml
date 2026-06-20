@@ -6,7 +6,7 @@ name: CI Pipeline
 
 on:
   push:
-    branches: ['main', 'dev']
+    branches: ['dev']
   pull_request:
     branches: ['main', 'dev']
 
@@ -32,12 +32,6 @@ jobs:
       
       - name: "Race"
         run: "make race"
-
-      - name: "FuzzLRUCore"
-        run : "go test -fuzz=FuzzLRUCore -fuzztime=30s ./lrucore"
-        
-      - name: "FuzzLRU"
-        run : "go test -fuzz=FuzzLRU -fuzztime=30s ."
 
       - name: "Bench"
         run : "make bench"

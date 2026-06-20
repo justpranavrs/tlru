@@ -4,10 +4,6 @@
 
 package mux
 
-import (
-	"github.com/justpranavrs/tlru/internal/errs"
-)
-
 // FNV Prime for s = 5.
 const fnvPrime32 uint32 = 16777619
 
@@ -23,7 +19,7 @@ func NewF32[K comparable](num int) (Mux[K], error) {
 
 	mux := getFnvMux[K](offset)
 	if mux == nil {
-		return *new(Mux[K]), errs.ErrInvalidMuxF32
+		return *new(Mux[K]), ErrInvalidMuxF32
 	}
 	return func(key K) uint32 {
 		hash := mux(key)

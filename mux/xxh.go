@@ -4,11 +4,7 @@
 
 package mux
 
-import (
-	"math/bits"
-
-	"github.com/justpranavrs/tlru/internal/errs"
-)
+import "math/bits"
 
 // xxHash32 Primes
 const xxHashPrime1 uint32 = 2654435761
@@ -33,7 +29,7 @@ func NewX32[K comparable](shards int) (Mux[K], error) {
 
 	mux := getXXHMux[K](seed, acc1, acc2, acc3, acc4)
 	if mux == nil {
-		return *new(Mux[K]), errs.ErrInvalidMuxX32
+		return *new(Mux[K]), ErrInvalidMuxX32
 	}
 	return func(key K) uint32 {
 		hash := mux(key)

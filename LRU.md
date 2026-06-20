@@ -15,10 +15,10 @@ Hello, This document is designed to help you get started with `tlru` and how to 
 
 This is a detailed walkthrough on how to get started with `tlru`.
 
-The choice of using either `tlru.LRU` or `lrucore.LRUCore` depends on
+The choice of using either `tlru.LRU` or `lrucore.Core` depends on
 
-- `tlru.LRU` works on `shard-based local eviction`. It consists of multiple `lrucore.LRUCore` instances known as `shards`. It does not care about the globally oldest key. While this does go around the textbook definition of LRU Cache, in practical cases, it gives `higher performance on high concurrency workloads` compared to its parent. It is not limited by any mutual extension locks, because of its `sharded architecture`. For more details on how sharded architectures work, refer `database sharding` [here](https://www.geeksforgeeks.org/system-design/database-sharding-a-system-design-concept/).
-- Its parent, `lrucore.LRUCore` works on the pure LRU Cache definition, it evicts the `globally oldest key`. It is only useful in scenarios where this matters. It performs a bit slower because of mutual extension locks, `sync.Mutex` for majority of its operations.
+- `tlru.LRU` works on `shard-based local eviction`. It consists of multiple `lrucore.Core` instances known as `shards`. It does not care about the globally oldest key. While this does go around the textbook definition of LRU Cache, in practical cases, it gives `higher performance on high concurrency workloads` compared to its parent. It is not limited by any mutual extension locks, because of its `sharded architecture`. For more details on how sharded architectures work, refer `database sharding` [here](https://www.geeksforgeeks.org/system-design/database-sharding-a-system-design-concept/).
+- Its parent, `lrucore.Core` works on the pure LRU Cache definition, it evicts the `globally oldest key`. It is only useful in scenarios where this matters. It performs a bit slower because of mutual extension locks, `sync.Mutex` for majority of its operations.
 
 A simple `tlru.LRU` instance can be created using the `tlru.New` constructor. It takes in the cache capacity as its argument.
 
@@ -87,11 +87,5 @@ As you can clearly see, the above snippet is a terrible example for a custom has
 ```go
 cache, err := tlru.New[int, string](25600, tlru.WithMux(CustomMux[int]))
 ```
-
-### Experimental Features
-
-Stated below are the current experimental features:
-
-- `Compaction`: It was initially built to fix memory fragmentation in an expensive O(N) operation. It takes the doubly-linked list and places it linearly back in the array to help CPU's L1/L2 cache work better. But it did not produce better results when triggered automatically. Now it can be manually called using `tlru.LRU` or `lrucore.LRUCore`. It might need better experimentation to get the desired output.
 
 You can look at more examples [here](./lru_example_test.go)

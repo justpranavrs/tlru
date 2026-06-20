@@ -7,6 +7,7 @@ package mux
 import (
 	"crypto/rand"
 	"encoding/binary"
+	"errors"
 )
 
 // Mux is a function that takes in key K of type comparable and output
@@ -19,6 +20,14 @@ type muxNumber interface {
 		uint | uint8 | uint16 | uint32 | uint64 |
 		uintptr
 }
+
+var (
+	// ErrInvalidMuxF32 is returned by [NewF32] when the key type is invalid for MuxF32.
+	ErrInvalidMuxF32 = errors.New("invalid key type for MuxF32: can be only string, bool, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, uintptr")
+
+	// ErrInvalidMuxX32 is returned by [NewX32] when the key type is invalid for MuxX32.
+	ErrInvalidMuxX32 = errors.New("invalid key type for MuxX32: can be only string, bool, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, uintptr")
+)
 
 // fastrange applies quick math instead of modulo to route
 // without overflowing index bounds.

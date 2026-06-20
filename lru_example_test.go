@@ -17,7 +17,7 @@ type Member struct {
 }
 
 // ExampleCache shows a small example of how to initialize a LRU instance and
-// do basic operations like Put, Size, Contains and Capacity.
+// do basic operations like Put, Size, Peek and Capacity.
 func ExampleCache() {
 	cache, err := tlru.New[int, Member](256) // create a lru instance
 	if err != nil {
@@ -31,9 +31,13 @@ func ExampleCache() {
 	})
 
 	fmt.Println(cache.Size()) // gets the current size of the cache
-	fmt.Println(cache.Contains(2))
 
-	fmt.Println(cache.Contains(1)) // reports whether key 1 is present in the cache
+	_, ok := cache.Peek(2)
+	fmt.Println(ok)
+
+	_, ok = cache.Peek(1)
+	fmt.Println(ok) // reports whether key 1 is present in the cache
+
 	fmt.Println(cache.Capacity())
 
 	cache.Flush()
@@ -61,26 +65,6 @@ func ExampleLRU_Capacity() {
 
 	// Output:
 	// 256
-}
-
-// ExampleLRU_Contains shows an example of how Contains works.
-func ExampleLRU_Contains() {
-	cache, err := tlru.New[int, Member](256) // create a lru instance
-	if err != nil {
-		fmt.Printf("[ERROR] could not initialize LRU instance: %v", err)
-		return
-	}
-
-	cache.Put(1, Member{ // insert in user data with user id 1
-		Name:  "justpranavrs",
-		Email: "iliketlru@gmail.com",
-	})
-	fmt.Println(cache.Contains(1))
-	fmt.Println(cache.Contains(2))
-
-	// Output:
-	// true
-	// false
 }
 
 // ExampleLRU_Get shows an example of how Get works and
@@ -119,7 +103,7 @@ func ExampleLRU_Get() {
 func ExampleLRU_Peek() {
 	cache, err := tlru.New[int, Member](2, tlru.WithShards(1))
 	if err != nil {
-		fmt.Printf("[ERROR] could not initialize LRUCore instance: %v", err)
+		fmt.Printf("[ERROR] could not initialize Core instance: %v", err)
 		return
 	}
 
@@ -148,7 +132,8 @@ func ExampleLRU_Peek() {
 		Name:  "tlru",
 		Email: "tlruisthebest@gmail.com",
 	})
-	fmt.Println(cache.Contains(3))
+	_, ok = cache.Peek(3)
+	fmt.Println(ok)
 
 	// Output:
 	// [GET] Name : justpranavrs | Email : iliketlru@gmail.com
@@ -169,21 +154,30 @@ func ExampleLRU_Put() {
 		Name:  "justpranavrs",
 		Email: "iliketlru@gmail.com",
 	})
-	fmt.Println(cache.Contains(2))
-	fmt.Println(cache.Contains(1))
+	_, ok := cache.Peek(2)
+	fmt.Println(ok)
+
+	_, ok = cache.Peek(1)
+	fmt.Println(ok)
 
 	cache.Put(2, Member{
 		Name:  "welcometotlru",
 		Email: "welcometotlru@gmail.com",
 	})
-	fmt.Println(cache.Contains(2))
+
+	_, ok = cache.Peek(2)
+	fmt.Println(ok)
 
 	cache.Put(3, Member{
 		Name:  "justpranavrs",
 		Email: "tlruiscool@gmail.com",
 	})
-	fmt.Println(cache.Contains(4))
-	fmt.Println(cache.Contains(3))
+
+	_, ok = cache.Peek(4)
+	fmt.Println(ok)
+
+	_, ok = cache.Peek(3)
+	fmt.Println(ok)
 
 	// Output:
 	// false

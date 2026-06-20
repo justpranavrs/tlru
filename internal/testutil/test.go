@@ -14,20 +14,6 @@ import (
 	"github.com/justpranavrs/tlru/internal/mathutil"
 )
 
-// CacheTest is a testing interface for the LRU instances.
-// For more details, refer [tlru.Cache]
-type CacheTest[K comparable, V any] interface {
-	Capacity() int
-	Compaction()
-	Contains(key K) bool
-	Flush()
-	Get(key K) (V, bool)
-	Peek(key K) (V, bool)
-	Put(key K, value V)
-	PutGrew(key K, value V) bool
-	Size() int
-}
-
 // TestInit takes in capacity as input and returns a Cache instance
 type TestInit func(int) CacheTest[int, User]
 
@@ -42,39 +28,40 @@ func TestCache(t *testing.T, ops []testCacheOp, init TestInit) {
 		case opCapacity:
 			cap := cache.Capacity()
 			if cap != op.expectedNumber {
-				t.Fatalf("\n[ERROR] discrepancy in capacity. expected: %d, value : %d, tick: %d", op.expectedNumber, cap, i)
-			}
-		case opContains:
-			if cache.Contains(op.key) != op.expectedBool {
-				t.Fatalf("\n[ERROR] invalid presence of key. key: %d, expected: %t, tick: %d", op.key, op.expectedBool, i)
+				t.Fatalf("\n[ERROR]:[CAPACITY] expected: %d, value : %d, tick: %d", op.expectedNumber, cap, i)
 			}
 		case opFlush:
 			cache.Flush()
 		case opGet:
 			val, ok := cache.Get(op.key)
 			if ok != op.expectedBool {
-				t.Fatalf("\n[ERROR] invalid presence of key, expected : %t, tick: %d", ok, i)
+				t.Fatalf("\n[ERROR]:[GET]:[CACHED] expected : %t, tick: %d", ok, i)
 			}
 			if ok && val != op.expectedValue {
-				t.Fatalf("\n[ERROR] unexpected value found, expected : %s, value : %s, tick: %d", op.expectedValue.Name, val.Name, i)
+				t.Fatalf("\n[ERROR]:[GET]:[VALUE] expected : %s, value : %s, tick: %d", op.expectedValue.Name, val.Name, i)
 			}
 		case opPeek:
 			val, ok := cache.Peek(op.key)
 			if ok != op.expectedBool {
-				t.Fatalf("\n[ERROR] invalid presence of key, expected : %t, tick: %d", ok, i)
+				t.Fatalf("\n[ERROR]:[PEEK]:[CACHED] expected : %t, tick: %d", ok, i)
 			}
 			if ok && val != op.expectedValue {
-				t.Fatalf("\n[ERROR] unexpected value found, expected : %s, value : %s, tick: %d", op.expectedValue.Name, val.Name, i)
+				t.Fatalf("\n[ERROR]:[PEEK]:[VALUE] expected : %s, value : %s, tick: %d", op.expectedValue.Name, val.Name, i)
 			}
 		case opPut:
 			cache.Put(op.key, op.value)
 		case opSize:
 			size := cache.Size()
 			if size != op.expectedNumber {
-				t.Fatalf("\n[ERROR] unexpected value found, expected : %d, value : %d, tick: %d", op.expectedNumber, size, i)
+				t.Fatalf("\n[ERROR]:[SIZE] expected : %d, value : %d, tick: %d", op.expectedNumber, size, i)
+			}
+		case opUpsert:
+			state := cache.Upsert(op.key, op.value)
+			if op.expectedNumber != int(state) {
+				t.Fatalf("\n[ERROR]:[UPSERT] expected : %d, value : %d, tick: %d", op.expectedNumber, state, i)
 			}
 		default:
-			t.Fatal("\n[ERROR] invalid test operation method")
+			t.Fatal("\n[ERROR]:[INVALID METHOD]")
 		}
 	}
 }
@@ -82,7 +69,7 @@ func TestCache(t *testing.T, ops []testCacheOp, init TestInit) {
 // TestRaceCache is the main concurrency check test for LRU.
 // It checks if it leads to data race with the -race flag.
 func TestRaceCache[K comparable](
-	t *testing.T, cache CacheTest[K, User], keys int, 
+	t *testing.T, cache CacheTest[K, User], keys int,
 	numOps int, numWorkers int, getKey func(CacheOp) K,
 ) {
 	data := GenerateZipfData(keys, numOps)
@@ -116,7 +103,7 @@ func TestRaceCache[K comparable](
 
 // FuzzCache runs a Fuzz test on the Cache instance.
 func FuzzCache(
-	f *testing.F, cache CacheTest[int, User], numOps int, 
+	f *testing.F, cache CacheTest[int, User], numOps int,
 	nBytes int, capacity int, shards int,
 ) {
 	keys := mathutil.NextPowerOf2(1 << ((nBytes << 3) - 4)) // round keys to the next power of 2
@@ -169,10 +156,6 @@ func FuzzCache(
 			isCached := (tick[key] != -1)
 
 			switch method {
-			case opContains:
-				if cache.Contains(key) != isCached {
-					t.Fatalf("\n[ERROR] invalid presence of key in [CONTAINS], expected: %t, tick: %d", !isCached, tk)
-				}
 			case opGet:
 				val, ok := cache.Get(key)
 				if ok != isCached {
@@ -221,7 +204,7 @@ func FuzzCache(
 }
 
 func BenchmarkCache(
-	b *testing.B, cache CacheTest[int, User], prefix string, capacity int, 
+	b *testing.B, cache CacheTest[int, User], prefix string, capacity int,
 	numOps int, data []CacheOp,
 ) {
 	numOps = mathutil.NextPowerOf2(uint(numOps))
