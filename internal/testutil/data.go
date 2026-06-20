@@ -30,7 +30,7 @@ var BasicCoreData = []testCacheOp{
 	{method: opUpsert, key: 7, value: User{Name: "golang-is-awesome", Email: "goisawesum@gmail.com"},
 		expectedNumber: int(lrucore.AddNoEvict),
 	},
-	{method: opPeek, key: 2, expectedBool: true, expectedValue:  User{Name: "just-golang", Email: "justtlru@gmail.com"}},
+	{method: opPeek, key: 2, expectedBool: true, expectedValue: User{Name: "just-golang", Email: "justtlru@gmail.com"}},
 	{method: opFlush},
 	{method: opGet, key: 2, expectedBool: false},
 	{method: opSize, expectedNumber: 0},

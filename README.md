@@ -105,6 +105,37 @@ cache, err := tlru.New[int, User](cacheCapacity, tlru.WithShards(64))
 - os: archlinux/amd64
 - cpu : AMD Ryzen 7 260 w/ Radeon 780M Graphics
 
+#### Competitors
+- `Gets - 50%, Puts - 50%`
+```
+Library          Operations       ns/op      B/op     allocs/op
+tlru.LRU		 69,126,327       17.81      0        0
+FreeLRU_Sharded  25,522,822       46.11      0        0
+Phuslu           60,684,256       19.44      0        0
+CCache            4,222,813      305.60     90        3
+Theine            8,056,616      143.70     16        0
+```
+
+- `Gets - 90%, Puts - 10%`
+```
+Library          Operations       ns/op      B/op     allocs/op
+tlru.LRU     	 61,858,590       17.47      0        0
+FreeLRU_Sharded  27,903,866       43.42      0        0
+Phuslu           74,030,343       17.16      0        0
+CCache            7,093,618      165.90     31        2
+Theine           16,673,943       82.08      2        0
+```
+
+- `Gets - 10%, Puts - 90%`
+```
+Library          Operations       ns/op      B/op     allocs/op
+TLRU_Sharded     64,692,157       23.82      0        0
+FreeLRU_Sharded  24,841,749       48.06      0        0
+Phuslu           62,875,437       20.51      0        0
+CCache            3,477,776      360.60    149        4
+Theine            6,261,631      180.00     24        0
+```
+
 #### Performance
 - `tlru.LRU` with `64` shards and `mux.NewF32` algorithm:
 ```
