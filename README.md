@@ -16,8 +16,9 @@
 ## Table of Contents
 
 - [Introduction](#introduction)
-  - [How does lrucore.Core work?](#how-does-lrucorelrucore-work)
+  - [How does lrucore.Core work?](#how-does-lrucorecore-work)
   - [What is tlru.LRU?](#what-is-tlrulru)
+  - [What is a mux.Mux?](#what-is-a-muxmux)
 - [Installation](#installation)
 - [Examples](#examples)
   - [Basic LRU Cache](#basic-lru-cache)
