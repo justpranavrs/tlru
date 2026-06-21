@@ -20,8 +20,8 @@ func TestLRUCore(t *testing.T) {
 		}
 		return cache
 	}
-	testutil.TestCache(t, testutil.BasicCoreData, init)
-	testutil.TestCache(t, testutil.AdvancedCoreData, init)
+	testutil.TestCache(t, testutil.BasicLRUData, init)
+	testutil.TestCache(t, testutil.AdvancedLRUData, init)
 }
 
 // TestRaceLRUCore_Int runs a concurrency test for the sharded LRU instance with int keys.

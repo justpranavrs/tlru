@@ -23,12 +23,12 @@ type Core[K comparable, V any] struct {
 	// hash maps the key to a unique index in the nodes array.
 	hash map[K]int32
 
+	// links are the connections of the doubly-linked list.
+	links []link
+
 	// nodes are the elements of the doubly-linked list.
 	// It is an array of [node].
 	nodes []node[K, V]
-
-	// capacity represents the maximum allocated space for the cache.
-	capacity int
 
 	// tail represents the last index in the nodes array.
 	// It has a value of capacity + 1.
@@ -39,13 +39,16 @@ type Core[K comparable, V any] struct {
 	// it changes to its new insertion index.
 	free int32
 
+	// capacity represents the maximum allocated space for the cache.
+	capacity int
+
 	// stats measures the instance's hits, misses and evictions.
 	stats CoreStats
 }
 
 // node represents a single element in [Core] instance's internal
-// doubly-linked list. It is packed into a contiguous array
-// to maximize CPU cache and avoid memory fragmentation.
+// doubly-linked list. It stores the data. Refer [link] for the
+// linked list implementation.
 type node[K comparable, V any] struct {
 	// key is the identifier used to lookup in the [Core] cache.
 	// It is recommended for key to be primitives such as (int, uint64, string).
@@ -53,7 +56,12 @@ type node[K comparable, V any] struct {
 
 	// value holds the actual data stored in the cache
 	value V
+}
 
+// link represents a node's connections in the doubly-linked list.
+// It is packed into a contiguous array to maximize CPU cache
+// and avoid memory fragmentation.
+type link struct {
 	// prev holds the index to the previous element in the doubly-linked list.
 	prev int32
 
@@ -63,13 +71,13 @@ type node[K comparable, V any] struct {
 
 // CoreStats represents the metrics of a [Core] instance.
 type CoreStats struct {
-	// Hits is the number of successful cache lookups from [Get] and [GetMany].
+	// Hits is the number of successful cache lookups from [Core.Get] and [Core.GetMany].
 	Hits int
 
-	// Misses is the number of failed cache lookups from [Get] and [GetMany].
+	// Misses is the number of failed cache lookups from [Core.Get] and [Core.GetMany].
 	Misses int
 
-	// Evictions is the number of keys removed from cache during [Put] and [PutMany].
+	// Evictions is the number of keys removed from cache during [Core.Put] and [Core.PutMany].
 	Evictions int
 }
 
@@ -87,8 +95,13 @@ const (
 	Replace
 )
 
-// ErrInvalidCapacity is returned by [New] when the maximum cache capacity is not in [2, 2147483646].
-var ErrInvalidCapacity = errors.New("invalid LRU cache capacity: must be in the range [2, 2147483646]")
+var (
+	// ErrInvalidBatchSize is returned by [Core.GetMany] or [Core.PutMany] when keys and values do not have the same lengths.
+	ErrInvalidBatchSize = errors.New("invalid LRU batch sizes: keys and values do not have the same lengths")
+
+	// ErrInvalidCapacity is returned by [New] when the maximum cache capacity is not in [2, 2147483646].
+	ErrInvalidCapacity = errors.New("invalid LRU cache capacity: must be in the range [2, 2147483646]")
+)
 
 // New creates an instance of [Core] using the given capacity.
 //
@@ -99,15 +112,18 @@ func New[K comparable, V any](capacity int) (*Core[K, V], error) {
 	}
 	tail := 1 + int32(capacity)
 
-	// allocate the initial nodes array with a size of 2+cap
+	// allocate the initial nodes and links array with a size of 2+cap
 	nodes := make([]node[K, V], 2+capacity)
-	nodes[0].next = tail
-	nodes[tail].prev = 0
+	links := make([]link, 2+capacity)
+
+	links[0].next = tail
+	links[tail].prev = 0
 
 	// lru
 	lru := &Core[K, V]{
 		hash:     make(map[K]int32, capacity),
 		nodes:    nodes,
+		links:    links,
 		capacity: capacity,
 		tail:     tail,
 		free:     0,
@@ -132,9 +148,10 @@ func (l *Core[K, V]) Flush() {
 
 	clear(l.hash)
 	clear(l.nodes)
+	clear(l.links)
 
-	l.nodes[0].next = l.tail
-	l.nodes[l.tail].prev = 0
+	l.links[0].next = l.tail
+	l.links[l.tail].prev = 0
 	l.free = 0
 }
 
@@ -145,6 +162,30 @@ func (l *Core[K, V]) Get(key K) (V, bool) {
 	defer l.mu.Unlock()
 
 	return l.getKey(key)
+}
+
+// GetMany allows retrieval of multiple keys at the same time under a single internal lock.
+//
+// The keys, values and exists array should be of the same size. If not they are not of same size,
+// [ErrInvalidBatchSize] is returned.
+//
+// The operation modifies values and exists in-place. If a key is not present in the cache,
+// the corresponding index in exists tis set to false and leaves the value at that index unchanged.
+func (l *Core[K, V]) GetMany(keys []K, values []V, exists []bool) error {
+	if (len(keys) != len(values)) || (len(keys) != len(exists)) {
+		return ErrInvalidBatchSize
+	}
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	for i := range keys {
+		val, ok := l.getKey(keys[i])
+		exists[i] = ok
+		if ok {
+			values[i] = val
+		}
+	}
+	return nil
 }
 
 // Peek retrieves the cache value without updating it
@@ -164,6 +205,24 @@ func (l *Core[K, V]) Put(key K, value V) {
 	defer l.mu.Unlock()
 
 	l.putKey(key, value)
+}
+
+// PutMany allows the addition of multiple key-value pairs at the
+// same time under a single internal lock.
+//
+// The keys and values array should be of the same size. If not they are not of same size,
+// [ErrInvalidBatchSize] is returned.
+func (l *Core[K, V]) PutMany(keys []K, values []V) error {
+	if len(keys) != len(values) {
+		return ErrInvalidBatchSize
+	}
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	for i := range keys {
+		l.putKey(keys[i], values[i])
+	}
+	return nil
 }
 
 // ResetStats resets the stats of the LRU cache.
@@ -210,11 +269,14 @@ func (l *Core[K, V]) addKey(key K, value V) {
 	l.nodes[l.free] = node[K, V]{
 		key:   key,
 		value: value,
-		prev:  l.nodes[l.tail].prev,
-		next:  l.tail,
 	}
-	l.nodes[l.nodes[l.tail].prev].next = l.free
-	l.nodes[l.tail].prev = l.free
+	l.links[l.free] = link{
+		prev: l.links[l.tail].prev,
+		next: l.tail,
+	}
+
+	l.links[l.links[l.tail].prev].next = l.free
+	l.links[l.tail].prev = l.free
 
 	l.hash[key] = l.free
 }
@@ -227,7 +289,7 @@ func (l *Core[K, V]) getKey(key K) (V, bool) {
 		l.stats.Misses++
 		return *new(V), false // not present in cache
 	}
-	if curr != l.nodes[l.tail].prev { // not already recent
+	if curr != l.links[l.tail].prev { // not already recent
 		l.remove(curr)
 		l.makeRecent(curr)
 	}
@@ -238,11 +300,11 @@ func (l *Core[K, V]) getKey(key K) (V, bool) {
 
 // makeRecent sets the key as 'Most Recently Used'.
 func (l *Core[K, V]) makeRecent(idx int32) {
-	l.nodes[l.nodes[l.tail].prev].next = idx
-	l.nodes[idx].prev = l.nodes[l.tail].prev
+	l.links[l.links[l.tail].prev].next = idx
+	l.links[idx].prev = l.links[l.tail].prev
 
-	l.nodes[idx].next = l.tail
-	l.nodes[l.tail].prev = idx
+	l.links[idx].next = l.tail
+	l.links[l.tail].prev = idx
 }
 
 // peekKey retrieves value of key without updating cache internal state.
@@ -270,7 +332,7 @@ func (l *Core[K, V]) putKey(key K, value V) UpsertState {
 		}
 	} else { // present in cache, just update values
 		l.nodes[curr].value = value
-		if curr != l.nodes[l.tail].prev { // not already recent
+		if curr != l.links[l.tail].prev { // not already recent
 			l.remove(curr)
 			l.makeRecent(curr)
 		}
@@ -280,15 +342,15 @@ func (l *Core[K, V]) putKey(key K, value V) UpsertState {
 
 // remove detaches the given element from the doubly-linked list.
 func (l *Core[K, V]) remove(idx int32) {
-	curr := l.nodes[idx]
+	curr := l.links[idx]
 
-	l.nodes[curr.prev].next = curr.next
-	l.nodes[curr.next].prev = curr.prev
+	l.links[curr.prev].next = curr.next
+	l.links[curr.next].prev = curr.prev
 }
 
 // removeOld removes the 'Least Recently Used' cache.
 func (l *Core[K, V]) removeOld() {
-	old := l.nodes[0].next
+	old := l.links[0].next
 	l.remove(old)
 
 	delete(l.hash, l.nodes[old].key)
