@@ -63,13 +63,13 @@ type node[K comparable, V any] struct {
 
 // CoreStats represents the metrics of a [Core] instance.
 type CoreStats struct {
-	// Hits is the number of successful cache lookups from [Get] and [GetMany].
+	// Hits is the number of successful cache lookups from [Core.Get] and [Core.GetMany].
 	Hits int
 
-	// Misses is the number of failed cache lookups from [Get] and [GetMany].
+	// Misses is the number of failed cache lookups from [Core.Get] and [Core.GetMany].
 	Misses int
 
-	// Evictions is the number of keys removed from cache during [Put] and [PutMany].
+	// Evictions is the number of keys removed from cache during [Core.Put] and [Core.PutMany].
 	Evictions int
 }
 
@@ -87,8 +87,13 @@ const (
 	Replace
 )
 
-// ErrInvalidCapacity is returned by [New] when the maximum cache capacity is not in [2, 2147483646].
-var ErrInvalidCapacity = errors.New("invalid LRU cache capacity: must be in the range [2, 2147483646]")
+var (
+	// ErrInvalidBatchSize is returned by [Core.GetMany] or [Core.PutMany] when keys and values do not have the same lengths.
+	ErrInvalidBatchSize = errors.New("invalid LRU batch sizes: keys and values do not have the same lengths")
+
+	// ErrInvalidCapacity is returned by [New] when the maximum cache capacity is not in [2, 2147483646].
+	ErrInvalidCapacity = errors.New("invalid LRU cache capacity: must be in the range [2, 2147483646]")
+)
 
 // New creates an instance of [Core] using the given capacity.
 //
@@ -147,6 +152,30 @@ func (l *Core[K, V]) Get(key K) (V, bool) {
 	return l.getKey(key)
 }
 
+// GetMany allows retrieval of multiple keys at the same time under a single internal lock.
+//
+// The keys, values and exists array should be of the same size. If not they are not of same size,
+// [ErrInvalidBatchSize] is returned.
+//
+// The operation modifies values and exists in-place. If a key is not present in the cache,
+// the corresponding index in exists tis set to false and leaves the value at that index unchanged.
+func (l *Core[K, V]) GetMany(keys []K, values []V, exists []bool) error {
+	if (len(keys) != len(values)) || (len(keys) != len(exists)) {
+		return ErrInvalidBatchSize
+	}
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	for i := range keys {
+		val, ok := l.getKey(keys[i])
+		exists[i] = ok
+		if ok {
+			values[i] = val
+		}
+	}
+	return nil
+}
+
 // Peek retrieves the cache value without updating it
 // to be the most recently used.
 // It returns false if the key is not found.
@@ -164,6 +193,24 @@ func (l *Core[K, V]) Put(key K, value V) {
 	defer l.mu.Unlock()
 
 	l.putKey(key, value)
+}
+
+// PutMany allows the addition of multiple key-value pairs at the
+// same time under a single internal lock.
+//
+// The keys and values array should be of the same size. If not they are not of same size,
+// [ErrInvalidBatchSize] is returned.
+func (l *Core[K, V]) PutMany(keys []K, values []V) error {
+	if len(keys) != len(values) {
+		return ErrInvalidBatchSize
+	}
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	for i := range keys {
+		l.putKey(keys[i], values[i])
+	}
+	return nil
 }
 
 // ResetStats resets the stats of the LRU cache.

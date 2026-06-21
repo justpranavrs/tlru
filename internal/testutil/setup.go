@@ -39,8 +39,8 @@ type CacheTest[K comparable, V any] interface {
 // actions are defined for the fuzz test.
 // flush is removed because fuzz tests are for accuracy.
 var actions = []int{
-	opGet, opGet, opGet, opGet, opGet, opGet, opGet,
-	opPeek, opPeek, opPut, opPut, opPut, opPut, opPut, opPut, opSize,
+	opGet, opGet, opGet, opGet, opGet, opGet, opPeek, opPeek,
+	opPut, opPut, opPut, opPut, opUpsert, opUpsert, opUpsert, opSize,
 }
 
 // testCacheOp defines the structure of a unit test data.

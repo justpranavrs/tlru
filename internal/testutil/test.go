@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/justpranavrs/tlru/internal/mathutil"
+	"github.com/justpranavrs/tlru/lrucore"
 )
 
 // TestInit takes in capacity as input and returns a Cache instance
@@ -195,6 +196,30 @@ func FuzzCache(
 				if sz != totalSize {
 					t.Fatalf("\n[ERROR] unexpected size of cache, expected: %d, value: %d, tick: %d", totalSize, sz, tk)
 				}
+			case opUpsert:
+				shard := mux(key)
+				var st lrucore.UpsertState
+
+				ste := cache.Upsert(key, user)
+				if !isCached {
+					if size[shard] >= maxSize {
+						tick[evictKey(tick, shard, keys, mux)] = -1
+						st = lrucore.AddOnEvict
+					} else {
+						size[shard]++
+						totalSize++
+						st = lrucore.AddNoEvict
+					}
+				} else {
+					st = lrucore.Replace
+				}
+
+				if st != ste {
+					t.Fatalf("\n[ERROR] unexpected upsert of cache, expected: %d, value: %d, tick: %d", st, ste, tk)
+				}
+
+				state[key] = user
+				tick[key] = tk
 			default:
 				t.Fatal("\n[ERROR] invalid test operation method")
 			}
