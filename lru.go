@@ -71,7 +71,7 @@ type Cache[K comparable, V any] interface {
 // not on globally oldest item in the cache.
 //
 // [mux.Mux] takes care of routing the shards to their containers consistently
-// using its hashing algorithm. The default mux is [mux.MuxX32.Get].
+// using its hashing algorithm. The default mux is [mux.NewMH32].
 type LRU[K comparable, V any] struct {
 	// capacity represents the maximum allocated space for the LRU cache.
 	capacity int
@@ -107,7 +107,7 @@ type Option func(c *config) error
 
 // New creates a [LRU] instance with the given capacity and options. It creates
 // the required [lrucore.Core] instances, initiates the [mux.Mux] for shard routing.
-// It defaults to the Mux with xxHash32 algorithm. Check `tlru/mux` package for alternatives.
+// It defaults to the Mux with hash/maphash algorithm. Check `tlru/mux` package for alternatives.
 //
 // Returns [ErrInvalidShards] if shards is not greater than 0 and in [int32] range.
 //
@@ -134,16 +134,7 @@ func New[K comparable, V any](capacity int, opts ...Option) (*LRU[K, V], error) 
 	if cfg.mux != nil {
 		hash = cfg.mux.(mux.Mux[K])
 	} else {
-		fun, err := mux.NewX32[K](cfg.shards)
-		if err != nil {
-			if errors.Is(err, mux.ErrInvalidMuxX32) {
-				hash = mux.NewMH32[K](cfg.shards)
-			} else {
-				return nil, err
-			}
-		} else {
-			hash = fun
-		}
+		hash = mux.NewMH32[K](cfg.shards)
 	}
 
 	lru := &LRU[K, V]{
