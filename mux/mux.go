@@ -21,6 +21,11 @@ type muxNumber interface {
 		uintptr
 }
 
+// muxPrimitive consists of all primitive types supportable by NewF32 and NewX32.
+type muxPrimitive interface {
+	string | bool | muxNumber
+}
+
 var (
 	// ErrInvalidMuxF32 is returned by [NewF32] when the key type is invalid for MuxF32.
 	ErrInvalidMuxF32 = errors.New("invalid key type for MuxF32: can be only string, bool, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, uintptr")

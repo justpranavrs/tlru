@@ -43,6 +43,9 @@ var actions = []int{
 	opPut, opPut, opPut, opPut, opUpsert, opUpsert, opUpsert, opSize,
 }
 
+const fuzzBytes int = 2
+const fuzzKeys int = 4096
+
 // testCacheOp defines the structure of a unit test data.
 type testCacheOp struct {
 	// input
@@ -59,11 +62,11 @@ type testCacheOp struct {
 }
 
 // finds the evict index
-func evictKey(tick []int, shard uint32, keys int, mux func(int) uint32) int {
+func evictKey(tick []int, shard uint32, mux func(int) uint32) int {
 	evictIdx := 0
-	evictTick := math.MaxInt32 - 1
+	evictTick := math.MaxInt32
 
-	for idx := range keys {
+	for idx := range tick {
 		sh := mux(idx) // checks if it is the current shard.
 		if sh != shard {
 			continue
@@ -76,16 +79,4 @@ func evictKey(tick []int, shard uint32, keys int, mux func(int) uint32) int {
 		}
 	}
 	return evictIdx
-}
-
-func TestMux(mask uint32) func(int) uint32 {
-	return func(key int) uint32 {
-		var hash uint32 = 0
-		for i := 0; i < 8; i++ {
-			hash ^= uint32(key & 255)
-			key >>= 8
-			hash *= 16777619
-		}
-		return (hash & mask)
-	}
 }

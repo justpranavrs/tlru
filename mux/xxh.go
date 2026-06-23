@@ -16,7 +16,9 @@ const xxHashPrime5 uint32 = 374761393
 // NewX32 returns a [Mux] which uses the xxHash32 algorithm
 // with a randomly generated xxHash32 seed value
 // and initializes the accumulators based on the value.
-func NewX32[K comparable](shards int) (Mux[K], error) {
+//
+// It takes in number of shards as its input.
+func NewX32[K muxPrimitive](shards int) Mux[K] {
 	seed := setSeed() // seed is used to get the initial configuration
 	// of the accumulators in xxHash32.
 
@@ -29,19 +31,19 @@ func NewX32[K comparable](shards int) (Mux[K], error) {
 
 	mux := getXXHMux[K](seed, acc1, acc2, acc3, acc4)
 	if mux == nil {
-		return *new(Mux[K]), ErrInvalidMuxX32
+		panic(ErrInvalidMuxX32)
 	}
 	return func(key K) uint32 {
 		hash := mux(key)
 		return fastrange(hash, shards) // fastrange is better than modulo operator
-	}, nil
+	}
 }
 
 // getXXHMux returns the internal mux function for
 // xxHash32 based on the generic key type.
 //
 // It is used internally in the [NewX32] constructor.
-func getXXHMux[K comparable](seed, acc1, acc2, acc3, acc4 uint32) Mux[K] {
+func getXXHMux[K muxPrimitive](seed, acc1, acc2, acc3, acc4 uint32) Mux[K] {
 	var mux any
 
 	switch any(*new(K)).(type) {
