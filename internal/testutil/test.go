@@ -13,6 +13,7 @@ import (
 
 	"github.com/justpranavrs/tlru/internal/mathutil"
 	"github.com/justpranavrs/tlru/lrucore"
+	"github.com/justpranavrs/tlru/mux"
 )
 
 // TestInit takes in capacity as input and returns a Cache instance
@@ -103,19 +104,13 @@ func TestRaceCache[K comparable](
 }
 
 // FuzzCache runs a Fuzz test on the Cache instance.
-func FuzzCache(
-	f *testing.F, cache CacheTest[int, User], numOps int,
-	nBytes int, capacity int, shards int,
-) {
-	keys := mathutil.NextPowerOf2(1 << ((nBytes << 3) - 4)) // round keys to the next power of 2
-	// 4 is for 16 actions in actions array
-
+func FuzzCache(f *testing.F, cache CacheTest[int, User], mux mux.Mux[int], numOps int, capacity int, shards int) {
 	actionMask := len(actions) - 1
-	keyMask := keys - 1
+	keyMask := fuzzKeys - 1
 	maxSize := capacity / int(shards)
 
 	// each op is nBytes
-	seed := make([]byte, numOps*nBytes) // generate fuzz seed
+	seed := make([]byte, numOps*fuzzBytes) // generate fuzz seed
 	for i := range seed {
 		seed[i] = byte(rand.IntN(256))
 	} // initially generate a fuzz seed for 1024 cache operations
@@ -124,22 +119,20 @@ func FuzzCache(
 	f.Fuzz(func(t *testing.T, arg []byte) {
 		cache.Flush() // the cache
 
-		state := make([]User, keys) // source of truth
-		tick := make([]int, keys)   // to find evict index
-		size := make([]int, shards) // to track size in o(1)
+		state := make([]User, fuzzKeys) // source of truth
+		tick := make([]int, fuzzKeys)   // to find evict index
+		size := make([]int, shards)     // to track size in o(1)
 		totalSize := 0
 
-		mux := TestMux(uint32(shards) - 1)
-
-		for i := range keys {
+		for i := range fuzzKeys {
 			tick[i] = -1
 		}
 
-		ops := make([]int, len(arg)/nBytes)
+		ops := make([]int, len(arg)/fuzzBytes)
 		for i := range ops {
 			op := 0
-			for j := range nBytes {
-				op = op<<8 + int(arg[i*nBytes+j])
+			for j := range fuzzBytes {
+				op = op<<8 + int(arg[i*fuzzBytes+j])
 			}
 			ops[i] = op
 		}
@@ -182,7 +175,7 @@ func FuzzCache(
 				cache.Put(key, user)
 				if !isCached {
 					if size[shard] >= maxSize {
-						tick[evictKey(tick, shard, keys, mux)] = -1
+						tick[evictKey(tick, shard, mux)] = -1
 					} else {
 						size[shard]++
 						totalSize++
@@ -203,7 +196,7 @@ func FuzzCache(
 				ste := cache.Upsert(key, user)
 				if !isCached {
 					if size[shard] >= maxSize {
-						tick[evictKey(tick, shard, keys, mux)] = -1
+						tick[evictKey(tick, shard, mux)] = -1
 						st = lrucore.AddOnEvict
 					} else {
 						size[shard]++
@@ -250,7 +243,6 @@ func BenchmarkCache(
 
 	b.Run(prefix+"_Gets", func(b *testing.B) {
 		b.ReportAllocs()
-		cache.Flush()
 		b.ResetTimer()
 
 		i := 0

@@ -92,8 +92,11 @@ var (
 	// ErrInvalidCapacity is returned by [New] when an invalid cache capacity is passed as argument.
 	ErrInvalidCapacity = errors.New("invalid LRU cache capacity: must be in the range of int32 and greater than or equal to twice the number of shards")
 
+	// ErrInvalidMuxKey is returned by [New] when mux does not have the same key type as LRU.
+	ErrInvalidMuxKey = errors.New("invalid mux for LRU: mux does not have the same key type as LRU")
+
 	// ErrInvalidShards is returned by [New] when an invalid number of shards is passed using WithShards.
-	ErrInvalidShards = errors.New("invalid number of shards: must be in the range of int32 and greater than 0")
+	ErrInvalidShards = errors.New("invalid number of shards: must be in range [1, 1073741823]")
 )
 
 // config represents the configuration of [LRU]. It should be used with [Option].
@@ -109,10 +112,10 @@ type Option func(c *config) error
 // the required [lrucore.Core] instances, initiates the [mux.Mux] for shard routing.
 // It defaults to the Mux with hash/maphash algorithm. Check `tlru/mux` package for alternatives.
 //
-// Returns [ErrInvalidShards] if shards is not greater than 0 and in [int32] range.
+// Returns [ErrInvalidShards] if shards is not in range [1, 1073741823].
 //
-// Returns [ErrInvalidCapacity] if capacity is not in [int32] range and greater than number
-// of shards.
+// Returns [ErrInvalidCapacity] if capacity is not in the range of int32
+// and greater than or equal to twice the number of shards.
 func New[K comparable, V any](capacity int, opts ...Option) (*LRU[K, V], error) {
 	// build the config
 	cfg := config{
@@ -125,14 +128,18 @@ func New[K comparable, V any](capacity int, opts ...Option) (*LRU[K, V], error) 
 		}
 	}
 
-	if capacity < int(cfg.shards*2) || (capacity > math.MaxInt32-1) {
+	if capacity < int(cfg.shards*2) || (capacity > math.MaxInt32) {
 		return nil, ErrInvalidCapacity
 	}
 
 	// set the mux hash
 	var hash mux.Mux[K]
 	if cfg.mux != nil {
-		hash = cfg.mux.(mux.Mux[K])
+		if fun, ok := cfg.mux.(mux.Mux[K]); ok {
+			hash = fun
+		} else {
+			return nil, ErrInvalidMuxKey
+		}
 	} else {
 		hash = mux.NewMH32[K](cfg.shards)
 	}
@@ -168,10 +175,10 @@ func New[K comparable, V any](capacity int, opts ...Option) (*LRU[K, V], error) 
 // WithShards assigns the [LRU] instance with num shards. Shards are separate instances
 // of [lrucore.Core] to prevent mutex locks from slowing down the cache.
 //
-// Returns [ErrInvalidShards] if num is not in [int32] range or equals zero.
+// Returns [ErrInvalidShards] if num is not in range [1, 1073741823].
 func WithShards(num int) Option {
 	return func(c *config) error {
-		if num < 1 || (num > math.MaxInt32-1) {
+		if num < 1 || (num > (math.MaxInt32 >> 1)) {
 			return ErrInvalidShards
 		}
 		c.shards = num

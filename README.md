@@ -111,69 +111,69 @@ cache, err := tlru.New[int, User](cacheCapacity, tlru.WithShards(64))
 * `tlru.LRU` with `64` shards:
 ```text
 [ Zipf Data ]
-  Puts-16                             36164115       34.87 ns/op       0 B/op       0 allocs/op
-  Gets-16                             97302411       13.20 ns/op       0 B/op       0 allocs/op
-  Mixed-16                            34324671       35.01 ns/op       0 B/op       0 allocs/op
-    Hits : 10739429, Miss : 23585242, Ratio: 0.3129
-  Mixed_Parallel-16                   53400261       22.07 ns/op       0 B/op       0 allocs/op
+  Puts-16                             36523065       33.26 ns/op       0 B/op       0 allocs/op
+  Gets-16                             49998720       24.27 ns/op       0 B/op       0 allocs/op
+  Mixed-16                            38868608       30.42 ns/op       0 B/op       0 allocs/op
+    Hits : 12198270, Miss : 26670338, Ratio: 0.3138
+  Mixed_Parallel-16                   58957501       20.42 ns/op       0 B/op       0 allocs/op
 
 [ Random Data ]
-  Puts-16                             29226392       41.45 ns/op       0 B/op       0 allocs/op
-  Gets-16                             81335832       13.05 ns/op       0 B/op       0 allocs/op
-  Mixed-16                            34635925       34.57 ns/op       0 B/op       0 allocs/op
-    Hits : 539935, Miss : 34095990, Ratio: 0.0156
-  Mixed_Parallel-16                   76091194       16.21 ns/op       0 B/op       0 allocs/op
+  Puts-16                             27762294       42.16 ns/op       0 B/op       0 allocs/op
+  Gets-16                             60976142       18.82 ns/op       0 B/op       0 allocs/op
+  Mixed-16                            32838690       36.67 ns/op       0 B/op       0 allocs/op
+    Hits : 512798, Miss : 32325892, Ratio: 0.0156
+  Mixed_Parallel-16                   72249718       16.89 ns/op       0 B/op       0 allocs/op
 ```
 
 * `tlru.LRU` with `128` shards (Default):
 ```text
 [ Zipf Data ]
-  Puts-16                             35838956       35.16 ns/op       0 B/op       0 allocs/op
-  Gets-16                             91117611       13.18 ns/op       0 B/op       0 allocs/op
-  Mixed-16                            32812344       35.68 ns/op       0 B/op       0 allocs/op
-    Hits : 10086308, Miss : 22726036, Ratio: 0.3074
-  Mixed_Parallel-16                   56536936       19.55 ns/op       0 B/op       0 allocs/op
+  Puts-16                             32705001       34.91 ns/op       0 B/op       0 allocs/op
+  Gets-16                             44981125       25.64 ns/op       0 B/op       0 allocs/op
+  Mixed-16                            36485504       33.10 ns/op       0 B/op       0 allocs/op
+    Hits : 11273690, Miss : 25211814, Ratio: 0.3090
+  Mixed_Parallel-16                   59793296       20.23 ns/op       0 B/op       0 allocs/op
 
 [ Random Data ]
-  Puts-16                             29004740       42.09 ns/op       0 B/op       0 allocs/op
-  Gets-16                             73972798       13.77 ns/op       0 B/op       0 allocs/op
-  Mixed-16                            32143723       35.59 ns/op       0 B/op       0 allocs/op
-    Hits : 503441, Miss : 31640282, Ratio: 0.0157
-  Mixed_Parallel-16                   97455319       11.89 ns/op       0 B/op       0 allocs/op
+  Puts-16                             27287380       43.57 ns/op       0 B/op       0 allocs/op
+  Gets-16                             62473988       17.91 ns/op       0 B/op       0 allocs/op
+  Mixed-16                            29104575       36.34 ns/op       0 B/op       0 allocs/op
+    Hits : 454279, Miss : 28650296, Ratio: 0.0156
+  Mixed_Parallel-16                   88131531       14.40 ns/op       0 B/op       0 allocs/op
 ```
 
 * `tlru.LRU` with `256` shards:
 ```text
 [ Zipf Data ]
-  Puts-16                             33154726       35.86 ns/op       0 B/op       0 allocs/op
-  Gets-16                             82692465       14.05 ns/op       0 B/op       0 allocs/op
-  Mixed-16                            34448319       34.63 ns/op       0 B/op       0 allocs/op
-    Hits : 10296718, Miss : 24151601, Ratio: 0.2989
-  Mixed_Parallel-16                   65244442       17.40 ns/op       0 B/op       0 allocs/op
+  Puts-16                             31912034       36.32 ns/op       0 B/op       0 allocs/op
+  Gets-16                             48343602       25.05 ns/op       0 B/op       0 allocs/op
+  Mixed-16                            37630839       31.63 ns/op       0 B/op       0 allocs/op
+    Hits : 11223834, Miss : 26407005, Ratio: 0.2983
+  Mixed_Parallel-16                   68040799       17.54 ns/op       0 B/op       0 allocs/op
 
 [ Random Data ]
-  Puts-16                             27685598       44.87 ns/op       0 B/op       0 allocs/op
-  Gets-16                             82208396       14.34 ns/op       0 B/op       0 allocs/op
-  Mixed-16                            33635023       37.73 ns/op       0 B/op       0 allocs/op
-    Hits : 525149, Miss : 33109874, Ratio: 0.0156
-  Mixed_Parallel-16                  100000000       10.10 ns/op       0 B/op       0 allocs/op
+  Puts-16                             26496339       43.42 ns/op       0 B/op       0 allocs/op
+  Gets-16                             71081203       16.68 ns/op       0 B/op       0 allocs/op
+  Mixed-16                            33968317       33.77 ns/op       0 B/op       0 allocs/op
+    Hits : 530169, Miss : 33438148, Ratio: 0.0156
+  Mixed_Parallel-16                  100000000       10.61 ns/op       0 B/op       0 allocs/op
 ```
 
 * `lrucore.Core`:
 ```text
 [ Zipf Data ]
-  Puts-16                             30797480       37.65 ns/op       0 B/op       0 allocs/op
-  Gets-16                            169850612        7.11 ns/op       0 B/op       0 allocs/op
-  Mixed-16                            33556694       36.07 ns/op       0 B/op       0 allocs/op
-    Hits : 10637908, Miss : 22918786, Ratio: 0.3170
-  Mixed_Parallel-16                   15446341       85.77 ns/op       0 B/op       0 allocs/op
+  Puts-16                             31436680       37.80 ns/op       0 B/op       0 allocs/op
+  Gets-16                             49003570       24.76 ns/op       0 B/op       0 allocs/op
+  Mixed-16                            34149271       33.48 ns/op       0 B/op       0 allocs/op
+    Hits : 10827918, Miss : 23321353, Ratio: 0.3171
+  Mixed_Parallel-16                   16186285       76.69 ns/op       0 B/op       0 allocs/op
 
 [ Random Data ]
-  Puts-16                             21273944       55.90 ns/op       0 B/op       0 allocs/op
-  Gets-16                            173406368        6.86 ns/op       0 B/op       0 allocs/op
-  Mixed-16                            25647774       45.42 ns/op       0 B/op       0 allocs/op
-    Hits : 400380, Miss : 25247394, Ratio: 0.0156
-  Mixed_Parallel-16                   14873089       93.58 ns/op       0 B/op       0 allocs/op
+  Puts-16                             20627521       55.77 ns/op       0 B/op       0 allocs/op
+  Gets-16                             47857557       21.62 ns/op       0 B/op       0 allocs/op
+  Mixed-16                            26897581       45.96 ns/op       0 B/op       0 allocs/op
+    Hits : 418846, Miss : 26478735, Ratio: 0.0156
+  Mixed_Parallel-16                   14360539       83.78 ns/op       0 B/op       0 allocs/op
 ```
 
 ## License

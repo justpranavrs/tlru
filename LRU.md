@@ -9,7 +9,6 @@ Hello, This document is designed to help you get started with `tlru` and how to 
 - [Customizing the Mux Algorithm](#customizing-the-mux-algorithm)
   - [Using the `tlru/mux` package](#using-the-tlrumux-package)
   - [Using a customized mux algorithm](#using-a-customized-mux-algorithm)
-- [Experimental Features](#experimental-features)
 
 ### Getting Started
 
@@ -17,7 +16,7 @@ This is a detailed walkthrough on how to get started with `tlru`.
 
 The choice of using either `tlru.LRU` or `lrucore.Core` depends on
 
-- `tlru.LRU` works on `shard-based local eviction`. It consists of multiple `lrucore.Core` instances known as `shards`. It does not care about the globally oldest key. While this does go around the textbook definition of LRU Cache, in practical cases, it gives `higher performance on high concurrency workloads` compared to its parent. It is not limited by any mutual extension locks, because of its `sharded architecture`. For more details on how sharded architectures work, refer `database sharding` [here](https://www.geeksforgeeks.org/system-design/database-sharding-a-system-design-concept/).
+- `tlru.LRU` works on `shard-based local eviction`. It consists of multiple `lrucore.Core` instances known as `shards`. It does not care about the globally oldest key. While this does go around the textbook definition of LRU Cache, in practical cases, it gives `higher performance on high concurrency workloads` compared to its parent. It is less limited to mutual extension locks, because of its `sharded architecture`. For more details on how sharded architectures work, refer `database sharding` [here](https://www.geeksforgeeks.org/system-design/database-sharding-a-system-design-concept/).
 - Its parent, `lrucore.Core` works on the pure LRU Cache definition, it evicts the `globally oldest key`. It is only useful in scenarios where this matters. It performs a bit slower because of mutual extension locks, `sync.Mutex` for majority of its operations.
 
 A simple `tlru.LRU` instance can be created using the `tlru.New` constructor. It takes in the cache capacity as its argument.
@@ -52,11 +51,7 @@ To customize the mux hashing algorithm, the `WithMux` method has to be used as s
 
 ```go
 capacity := 25600
-fnvMux, err := mux.NewF32[int](capacity)
-if err != nil {
-	fmt.Printf("err: %v", err)
-}
-cache, err := tlru.New[int, string](capacity, tlru.WithMux(fnvMux))
+cache, err := tlru.New[int, string](capacity, tlru.WithMux(mux.NewF32[int](capacity)))
 ```
 
 The above snippet uses the FNV-1a algorithm, than the default `hash/maphash` algorithm.
@@ -82,7 +77,7 @@ func CustomMux[K comparable](key int) uint32 {
 }
 ```
 
-As you can clearly see, the above snippet is a terrible example for a custom hash algorithm, it works but at the same time, it absolutely clearly does not. But it demonstrates the example of how to create a `mux.Mux` to be able to use it in `tlru.LRU`
+As you can clearly see, the above snippet is a terrible example for a custom hash algorithm, it works but at the same time, it is vulnerable to Hash-DOS attacks. But it demonstrates the example of how to create a `mux.Mux` to be able to use it in `tlru.LRU`
 
 ```go
 cache, err := tlru.New[int, string](25600, tlru.WithMux(CustomMux[int]))

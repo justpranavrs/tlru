@@ -9,6 +9,7 @@ import (
 
 	"github.com/justpranavrs/tlru"
 	"github.com/justpranavrs/tlru/internal/testutil"
+	"github.com/justpranavrs/tlru/mux"
 )
 
 // TestLRU runs a basic unit test for the sharded LRU instance.
@@ -73,7 +74,7 @@ func TestRaceLRU_Uint(t *testing.T) {
 
 // TestRaceLRU_Int runs a concurrency test for the sharded LRU instance with string keys.
 func TestRaceLRU_String(t *testing.T) {
-	cacheStr, err := tlru.New[uint, testutil.User](512)
+	cacheStr, err := tlru.New[string, testutil.User](512)
 	if err != nil {
 		t.Fatalf("[ERROR] could not initialize Cache instance: %v", err)
 	}
@@ -82,20 +83,19 @@ func TestRaceLRU_String(t *testing.T) {
 	numOps := 1 << 24
 	numWorkers := 256
 
-	testutil.TestRaceCache(t, cacheStr, keys, numOps, numWorkers, func(c testutil.CacheOp) uint {
-		return uint(c.Key)
+	testutil.TestRaceCache(t, cacheStr, keys, numOps, numWorkers, func(c testutil.CacheOp) string {
+		return c.Value.Email
 	})
 }
 
 // FuzzLRU runs a fuzz test for the sharded LRU instance.
 func FuzzLRU(f *testing.F) {
-	cache, err := tlru.New[int, testutil.User](512,
-		tlru.WithMux(testutil.TestMux(uint32(tlru.DefaultShards)-1)),
-	)
+	hasher := mux.NewMH32[int](tlru.DefaultShards)
+	cache, err := tlru.New[int, testutil.User](512, tlru.WithMux(hasher))
 	if err != nil {
 		f.Fatalf("[ERROR] could not initialize Cache instance: %v", err)
 	}
-	testutil.FuzzCache(f, cache, 8192, 2, 512, tlru.DefaultShards)
+	testutil.FuzzCache(f, cache, hasher, 8192, 512, tlru.DefaultShards)
 }
 
 // BenchmarkLRUWith64 runs a benchmark test for the sharded LRU instance

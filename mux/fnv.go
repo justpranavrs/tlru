@@ -10,8 +10,9 @@ const fnvPrime32 uint32 = 16777619
 // NewF32 returns a [Mux] which uses the FNV-1a hash algorithm with
 // a custom offset.
 //
+// It takes in number of shards as its input.
 // Refer, https://www.ietf.org/archive/id/draft-eastlake-fnv-22.html
-func NewF32[K comparable](num int) (Mux[K], error) {
+func NewF32[K muxPrimitive](shards int) Mux[K] {
 	offset := setSeed() // offset is the FNV offset value.
 	// It is randomly generated instead of the given FNV offset value
 	// to ensure attackers don't brute force keys (Hash DOS) to force the
@@ -19,16 +20,16 @@ func NewF32[K comparable](num int) (Mux[K], error) {
 
 	mux := getFnvMux[K](offset)
 	if mux == nil {
-		return *new(Mux[K]), ErrInvalidMuxF32
+		panic(ErrInvalidMuxF32)
 	}
 	return func(key K) uint32 {
 		hash := mux(key)
-		return fastrange(hash, num)
-	}, nil
+		return fastrange(hash, shards)
+	}
 }
 
 // Get returns the shard number of the corresponding key.
-func getFnvMux[K comparable](offset uint32) Mux[K] {
+func getFnvMux[K muxPrimitive](offset uint32) Mux[K] {
 	var mux any
 
 	switch any(*new(K)).(type) {

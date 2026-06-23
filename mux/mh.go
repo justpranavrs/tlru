@@ -8,9 +8,11 @@ import "hash/maphash"
 
 // NewMH32 returns a [Mux] which uses the "hash/maphash"
 // standard package. It is compatible with all key type of type comparable.
-func NewMH32[K comparable](num int) Mux[K] {
+//
+// It takes in number of shards as its input.
+func NewMH32[K comparable](shards int) Mux[K] {
 	seed := maphash.MakeSeed()
 	return func(key K) uint32 {
-		return fastrange(uint32(maphash.Comparable(seed, key)), num)
+		return fastrange(uint32(maphash.Comparable(seed, key)), shards)
 	}
 }

@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.1] - 2026-06-23
+Link : [Github Release](https://github.com/justpranavrs/tlru/releases/tag/v0.4.1)
+
+### Changed
+- `WithMux` now raises compile-time error, rather than runtime error for `NewF32` and `NewX32`.
+- `NewF32`, `NewX32` now only return `mux.Mux` instead of `(mux.Mux, error)`.
+- `FuzzCache` in `internal/testutil` now directly takes in `mux.Mux` instead of its standalone `TestMux`.
+
+### Fixed
+- `Benchmark_Gets` now retains the cache from `Benchmark_Puts`.
+- `TestRaceCache` for `string` were using `uint`.
+- `WithShards` boundary conditions more strict to ensure that the error is caught by `ErrInvalidShards` instead of `ErrInvalidCapacity`.
+
 ## [0.4.0] - 2026-06-21
 Link : [Github Release](https://github.com/justpranavrs/tlru/releases/tag/v0.4.0)
 
@@ -138,6 +151,7 @@ Link : [Github Release](https://github.com/justpranavrs/tlru/releases/tag/v0.1.0
 - `Examples` for GoDoc.
 
 ## 
+- [0.4.1] : [View changes from 0.4.0 to 0.4.1](https://github.com/justpranavrs/tlru/compare/v0.4.0...v0.4.1)
 - [0.4.0] : [View changes from 0.3.2 to 0.4.0](https://github.com/justpranavrs/tlru/compare/v0.3.2...v0.4.0)
 - [0.3.2] : [View changes from 0.3.1 to 0.3.2](https://github.com/justpranavrs/tlru/compare/v0.3.1...v0.3.2)
 - [0.3.1] : [View changes from 0.3.0 to 0.3.1](https://github.com/justpranavrs/tlru/compare/v0.3.0...v0.3.1)
