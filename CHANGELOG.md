@@ -12,6 +12,7 @@ Link : [Github Release](https://github.com/justpranavrs/tlru/releases/tag/v0.5.0
 - `TTL` can be enabled using the `WithTTL` option for both `lrucore.Core` and `tlru.LRU` and it uses `Absolute TTL`.
 - `Delete` is now available to both `tlru.LRU` and `lrucore.Core`. It returns `false` if they key was not present in the cache, else it returns true and also the evicted value. Also an Example for `Delete` was added.
 - `tlru/lruclock` which allows creating background clocks for TTL with a custom timer.
+- `Close` to `tlru.Cache` and both `tlru.LRU` and `lrucore.Core` to safely close the background clock.
 
 ### Changed
 - `lrucore.Core` internal architecture has been changed. The entire cache is always linked, embedding the `free` pointer doubly-linked list just after the `mru` of the cache. This approach was taken to allow `Delete` and `TTL`.

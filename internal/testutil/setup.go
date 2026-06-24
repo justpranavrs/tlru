@@ -29,6 +29,7 @@ const (
 // For more details, refer [tlru.Cache]
 type CacheTest[K comparable, V any] interface {
 	Capacity() int
+	Close()
 	Delete(key K) (V, bool)
 	Flush()
 	Get(key K) (V, bool)

@@ -97,6 +97,8 @@ The below examples demonstrates how to create a cache with a `TTL` of `5 hours`.
 cache, err := tlru.New[int, string](25600, tlru.WithTTL(5 * time.Hour))
 ```
 
+When a cache is created, a background clock, which is a goroutine is spawned. To safely close the goroutine, calling `cache.Close()` is the best and recommended practice.
+
 #### Using a Custom Clock
 LRU Cache with TTL uses a background clock instead of the CPU's clock to reduce the lock contention due to `sync/Mutex` by using heavy operations inside a lock.
 
