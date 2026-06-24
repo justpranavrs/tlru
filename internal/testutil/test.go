@@ -141,6 +141,7 @@ func FuzzCache(f *testing.F, cache CacheTest[int, User], mux mux.Mux[int], numOp
 		for _, op := range ops {
 			method := actions[op&actionMask] // since actions and keys are 2^n
 			key := op & keyMask
+			shard := mux(key)
 
 			name := "tlru_user_" + strconv.Itoa(key)
 			user := User{
@@ -150,6 +151,20 @@ func FuzzCache(f *testing.F, cache CacheTest[int, User], mux mux.Mux[int], numOp
 			isCached := (tick[key] != -1)
 
 			switch method {
+			case opDelete:
+				val, ok := cache.Delete(key)
+				if ok != isCached {
+					t.Fatalf("\n[ERROR] invalid presence of key in [DELETE], expected: %t, tick: %d", ok, tk)
+				}
+				if ok {
+					if val != state[key] {
+						t.Fatalf("\n[ERROR] unexpected value found in [DELETE], tick: %d", tk)
+					}
+					state[key] = User{}
+					tick[key] = -1
+					size[shard]--
+					totalSize--
+				}
 			case opGet:
 				val, ok := cache.Get(key)
 				if ok != isCached {
@@ -170,12 +185,12 @@ func FuzzCache(f *testing.F, cache CacheTest[int, User], mux mux.Mux[int], numOp
 					t.Fatalf("\n[ERROR] unexpected value found in [GET QUIET], tick: %d", tk)
 				}
 			case opPut:
-				shard := mux(key)
-
 				cache.Put(key, user)
 				if !isCached {
 					if size[shard] >= maxSize {
-						tick[evictKey(tick, shard, mux)] = -1
+						idx := evictKey(tick, shard, mux)
+						state[idx] = User{}
+						tick[idx] = -1
 					} else {
 						size[shard]++
 						totalSize++
@@ -190,13 +205,14 @@ func FuzzCache(f *testing.F, cache CacheTest[int, User], mux mux.Mux[int], numOp
 					t.Fatalf("\n[ERROR] unexpected size of cache, expected: %d, value: %d, tick: %d", totalSize, sz, tk)
 				}
 			case opUpsert:
-				shard := mux(key)
 				var st lrucore.UpsertState
 
 				ste := cache.Upsert(key, user)
 				if !isCached {
 					if size[shard] >= maxSize {
-						tick[evictKey(tick, shard, mux)] = -1
+						idx := evictKey(tick, shard, mux)
+						state[idx] = User{}
+						tick[idx] = -1
 						st = lrucore.AddOnEvict
 					} else {
 						size[shard]++

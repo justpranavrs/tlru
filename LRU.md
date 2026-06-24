@@ -9,6 +9,8 @@ Hello, This document is designed to help you get started with `tlru` and how to 
 - [Customizing the Mux Algorithm](#customizing-the-mux-algorithm)
   - [Using the `tlru/mux` package](#using-the-tlrumux-package)
   - [Using a customized mux algorithm](#using-a-customized-mux-algorithm)
+- [Enabling TTL(Time-To-Live)](#enabling-ttltime-to-live)
+  - [Using a Custom Clock](#using-a-custom-clock)
 
 ### Getting Started
 
@@ -55,7 +57,11 @@ cache, err := tlru.New[int, string](capacity, tlru.WithMux(mux.NewF32[int](capac
 ```
 
 The above snippet uses the FNV-1a algorithm, than the default `hash/maphash` algorithm.
-Below are the given algorithms currently in the `tlru/mux` package: - `FNV-1a` - `xxHash32` - `hash/maphash`
+Below are the given algorithms currently in the `tlru/mux` package: 
+  - `FNV-1a` 
+  - `xxHash32` 
+  - `hash/maphash`
+
 **NOTE**: The `hash/maphash` implementation, which is `mux.NewMH32` is compatible with all key types of type comparable, while the other two implementations lack support for floats and custom structs.
 
 #### Using a customized mux algorithm
@@ -82,5 +88,23 @@ As you can clearly see, the above snippet is a terrible example for a custom has
 ```go
 cache, err := tlru.New[int, string](25600, tlru.WithMux(CustomMux[int]))
 ```
+
+### Enabling TTL(Time-To-Live)
+The `WithTTL` option enables TTL and is available for both `lrucore.Core` or `tlru.LRU`. It uses `Absolute TTL`, which does not update the timestamp for the `key` during a `Get` operation.
+
+The below examples demonstrates how to create a cache with a `TTL` of `5 hours`.
+```go
+cache, err := tlru.New[int, string](25600, tlru.WithTTL(5 * time.Hour))
+```
+
+#### Using a Custom Clock
+LRU Cache with TTL uses a background clock instead of the CPU's clock to reduce the lock contention due to `sync/Mutex` by using heavy operations inside a lock.
+
+The default clock duration is 100ms. To customize it, the `tlru/lruclock` package is used.
+```go
+clock := lruclock.New(200 * time.Millisecond)
+cache, err := tlru.New[int, int](25600, tlru.WithTTL(5 * time.Hour), tlru.WithClock(clock))
+```
+Above example uses a clock with 200ms.
 
 You can look at more examples [here](./lru_example_test.go)

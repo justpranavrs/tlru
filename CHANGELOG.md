@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-06-24
+Link : [Github Release](https://github.com/justpranavrs/tlru/releases/tag/v0.5.0)
+
+### Added
+- `TTL` can be enabled using the `WithTTL` option for both `lrucore.Core` and `tlru.LRU` and it uses `Absolute TTL`.
+- `Delete` is now available to both `tlru.LRU` and `lrucore.Core`. It returns `false` if they key was not present in the cache, else it returns true and also the evicted value. Also an Example for `Delete` was added.
+- `tlru/lruclock` which allows creating background clocks for TTL with a custom timer.
+
+### Changed
+- `lrucore.Core` internal architecture has been changed. The entire cache is always linked, embedding the `free` pointer doubly-linked list just after the `mru` of the cache. This approach was taken to allow `Delete` and `TTL`.
+
 ## [0.4.1] - 2026-06-23
 Link : [Github Release](https://github.com/justpranavrs/tlru/releases/tag/v0.4.1)
 
@@ -151,6 +162,7 @@ Link : [Github Release](https://github.com/justpranavrs/tlru/releases/tag/v0.1.0
 - `Examples` for GoDoc.
 
 ## 
+- [0.5.0] : [View changes from 0.4.1 to 0.5.0](https://github.com/justpranavrs/tlru/compare/v0.4.1...v0.5.0)
 - [0.4.1] : [View changes from 0.4.0 to 0.4.1](https://github.com/justpranavrs/tlru/compare/v0.4.0...v0.4.1)
 - [0.4.0] : [View changes from 0.3.2 to 0.4.0](https://github.com/justpranavrs/tlru/compare/v0.3.2...v0.4.0)
 - [0.3.2] : [View changes from 0.3.1 to 0.3.2](https://github.com/justpranavrs/tlru/compare/v0.3.1...v0.3.2)

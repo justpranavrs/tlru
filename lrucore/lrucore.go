@@ -8,6 +8,9 @@ import (
 	"errors"
 	"math"
 	"sync"
+	"time"
+
+	"github.com/justpranavrs/tlru/lruclock"
 )
 
 // Core is basic implementation of 'Least Recently Used' Cache.
@@ -30,17 +33,31 @@ type Core[K comparable, V any] struct {
 	// It is an array of [node].
 	nodes []node[K, V]
 
+	// mru points to the most recently used key in the cache.
+	// its next link will be the next free slot.
+	mru int32
+
 	// tail represents the last index in the nodes array.
 	// It has a value of capacity + 1.
 	tail int32
 
-	// free points to the next available space for the cache.
-	// it sits on the last occupied key and right before insertion,
-	// it changes to its new insertion index.
-	free int32
-
 	// capacity represents the maximum allocated space for the cache.
 	capacity int
+
+	// hasTTL is initialized when the instance is created.
+	// If true, ttl is enabled. Defaults to false.
+	hasTTL bool
+
+	// clock is the background timer to ensure fast time loads
+	// without halting the LRU operations.
+	clock *lruclock.Clock
+
+	// expiresAt determines the (time-to-live) duration of an element.
+	expiresAt int64
+
+	// timestamps stores the last updated timestamp of a doubly-linked list
+	// element and is set during [Core.addKey] and updated at [Core.putKey].
+	timestamps []int64
 
 	// stats measures the instance's hits, misses and evictions.
 	stats CoreStats
@@ -79,14 +96,21 @@ type CoreStats struct {
 
 	// Evictions is the number of keys removed from cache during [Core.Put] and [Core.PutMany].
 	Evictions int
+
+	// Expirations is the number of expirations triggered due to TTL (Time-To-Live).
+	Expirations int
 }
 
 // UpsertState represents the value returned by Upsert operation.
 type UpsertState uint8
 
 const (
+	// AddAfterExpiration is triggered when a new key was added after an expiration
+	// due to TTL (Time-To-Live).
+	AddAfterExpiration UpsertState = iota
+
 	// AddNoEvict is triggered when a new key was added without eviction.
-	AddNoEvict UpsertState = iota
+	AddNoEvict
 
 	// AddOnEvict is triggered when a new key was added after an eviction.
 	AddOnEvict
@@ -103,21 +127,52 @@ var (
 	ErrInvalidCapacity = errors.New("invalid LRU cache capacity: must be in the range [2, 2147483646]")
 )
 
+// coreConfig represents the configuration of [Core]. It should be used with [CoreOption].
+type coreConfig struct {
+	hasTTL    bool
+	expiresAt time.Duration
+
+	clock *lruclock.Clock
+}
+
+// CoreOption is used to configure [Core] when creating an instance using [New] constructor.
+type CoreOption func(c *coreConfig) error
+
 // New creates an instance of [Core] using the given capacity.
 //
 // Returns an [ErrInvalidCapacity] if the capacity is not in [2, 2147483646].
-func New[K comparable, V any](capacity int) (*Core[K, V], error) {
+func New[K comparable, V any](capacity int, opts ...CoreOption) (*Core[K, V], error) {
 	if capacity < 2 || (capacity > math.MaxInt32-2) { // For capacity 1, a variable can be used.
 		return nil, ErrInvalidCapacity
 	}
-	tail := 1 + int32(capacity)
+	cap := int32(capacity)
+	tail := 1 + cap
+
+	// build the config
+	cfg := coreConfig{
+		hasTTL: false,
+	}
+	for _, opt := range opts { // options
+		if opt == nil {
+			continue
+		}
+		if err := opt(&cfg); err != nil {
+			return nil, err
+		}
+	}
 
 	// allocate the initial nodes and links array with a size of 2+cap
 	nodes := make([]node[K, V], 2+capacity)
 	links := make([]link, 2+capacity)
 
-	links[0].next = tail
-	links[tail].prev = 0
+	links[0].next = 1
+	links[tail].prev = cap
+
+	i := int32(1)
+	for ; i <= cap; i++ {
+		links[i].prev = i - 1
+		links[i].next = i + 1
+	}
 
 	// lru
 	lru := &Core[K, V]{
@@ -126,19 +181,88 @@ func New[K comparable, V any](capacity int) (*Core[K, V], error) {
 		links:    links,
 		capacity: capacity,
 		tail:     tail,
-		free:     0,
+		mru:      0,
 		stats: CoreStats{
-			Hits:      0,
-			Misses:    0,
-			Evictions: 0,
+			Hits:        0,
+			Misses:      0,
+			Evictions:   0,
+			Expirations: 0,
 		},
+		hasTTL:     cfg.hasTTL,
+		timestamps: nil,
+		clock:      nil,
+	}
+
+	if cfg.hasTTL {
+		lru.timestamps = make([]int64, 2+capacity)
+
+		duration := 100 * time.Millisecond
+		if cfg.clock != nil {
+			lru.clock = cfg.clock
+			duration = cfg.clock.Duration()
+		} else {
+			lru.clock = lruclock.New(duration)
+			lru.clock.Start()
+		}
+		lru.expiresAt = int64(cfg.expiresAt / duration)
 	}
 	return lru, nil
+}
+
+// WithClock allows the usage of a custom clock for [Core].
+// It is only initialized if "TTL" is enabled.
+//
+// NOTE: Using WithClock on [New] will not start the clock. Use [lruclock.Clock.Start] to
+// initiate the timer.
+func WithClock(clock *lruclock.Clock) CoreOption {
+	return func(c *coreConfig) error {
+		c.clock = clock
+		return nil
+	}
+}
+
+// WithTTL enables (Time-to-Live) for [Core].
+// expiresAt determines the (TTL) duration of an element in the cache.
+//
+// [Core] uses Absolute TTL if enabled. It uses a clock with a duration of 100ms.
+// To customize the clock, check [WithClock].
+//
+// Enabling TTL creates a Background clock. To close it use [Core.Close].
+func WithTTL(expiresAt time.Duration) CoreOption {
+	return func(c *coreConfig) error {
+		c.hasTTL = true
+		c.expiresAt = expiresAt
+		return nil
+	}
 }
 
 // Capacity returns the maximum allocated capacity of the LRU cache.
 func (l *Core[K, V]) Capacity() int {
 	return l.capacity
+}
+
+// Close safely closes the background clock when TTL is enabled on the cache.
+func (l *Core[K, V]) Close() {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	if l.hasTTL {
+		l.clock.Stop()
+	}
+}
+
+// Delete removes the key from the cache and returns the evicted value.
+// It returns false if the key was not found in the cache.
+func (l *Core[K, V]) Delete(key K) (V, bool) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	curr, ok := l.hash[key]
+	if !ok {
+		return *new(V), false
+	}
+	l.stats.Evictions++
+	return l.deleteKey(curr), true
 }
 
 // Flush clears the LRU cache of all its keys and values.
@@ -148,11 +272,7 @@ func (l *Core[K, V]) Flush() {
 
 	clear(l.hash)
 	clear(l.nodes)
-	clear(l.links)
-
-	l.links[0].next = l.tail
-	l.links[l.tail].prev = 0
-	l.free = 0
+	l.mru = 0
 }
 
 // Get retrieves the cache value using key.
@@ -266,19 +386,17 @@ func (l *Core[K, V]) Upsert(key K, value V) UpsertState {
 
 // addKey adds the cache with the given key and cache value.
 func (l *Core[K, V]) addKey(key K, value V) {
-	l.nodes[l.free] = node[K, V]{
+	free := l.links[l.mru].next
+	l.nodes[free] = node[K, V]{
 		key:   key,
 		value: value,
 	}
-	l.links[l.free] = link{
-		prev: l.links[l.tail].prev,
-		next: l.tail,
+	if l.hasTTL {
+		l.timestamps[free] = l.clock.Now()
 	}
 
-	l.links[l.links[l.tail].prev].next = l.free
-	l.links[l.tail].prev = l.free
-
-	l.hash[key] = l.free
+	l.hash[key] = free
+	l.mru = free
 }
 
 // getKey retrieves the value of the key passed as argument.
@@ -289,7 +407,15 @@ func (l *Core[K, V]) getKey(key K) (V, bool) {
 		l.stats.Misses++
 		return *new(V), false // not present in cache
 	}
-	if curr != l.links[l.tail].prev { // not already recent
+	if l.hasTTL && l.clock.Since(l.timestamps[curr]) > l.expiresAt {
+		l.deleteKey(curr)
+		l.stats.Expirations++
+
+		l.stats.Misses++
+		return *new(V), false
+	}
+
+	if curr != l.mru { // not already recent
 		l.remove(curr)
 		l.makeRecent(curr)
 	}
@@ -300,11 +426,16 @@ func (l *Core[K, V]) getKey(key K) (V, bool) {
 
 // makeRecent sets the key as 'Most Recently Used'.
 func (l *Core[K, V]) makeRecent(idx int32) {
-	l.links[l.links[l.tail].prev].next = idx
-	l.links[idx].prev = l.links[l.tail].prev
+	free := l.links[l.mru].next
 
-	l.links[idx].next = l.tail
-	l.links[l.tail].prev = idx
+	l.links[l.mru].next = idx
+	l.links[free].prev = idx
+
+	l.links[idx] = link{
+		prev: l.mru,
+		next: free,
+	}
+	l.mru = idx
 }
 
 // peekKey retrieves value of key without updating cache internal state.
@@ -312,6 +443,13 @@ func (l *Core[K, V]) makeRecent(idx int32) {
 func (l *Core[K, V]) peekKey(key K) (V, bool) {
 	curr, ok := l.hash[key]
 	if !ok {
+		return *new(V), false
+	}
+	if l.hasTTL && l.clock.Since(l.timestamps[curr]) > l.expiresAt {
+		l.deleteKey(curr)
+		l.stats.Expirations++
+
+		l.stats.Misses++
 		return *new(V), false
 	}
 	return l.nodes[curr].value, true
@@ -322,19 +460,29 @@ func (l *Core[K, V]) putKey(key K, value V) UpsertState {
 	curr, ok := l.hash[key]
 	if !ok { // not present in cache
 		if len(l.hash) == l.capacity {
-			l.removeOld()
+			old := l.links[0].next
+			l.deleteKey(old)
+			l.stats.Evictions++
+
 			l.addKey(key, value)
 			return AddOnEvict
 		} else {
-			l.free++
 			l.addKey(key, value)
 			return AddNoEvict
 		}
 	} else { // present in cache, just update values
 		l.nodes[curr].value = value
-		if curr != l.links[l.tail].prev { // not already recent
+		if curr != l.mru { // not already recent
 			l.remove(curr)
 			l.makeRecent(curr)
+		}
+		if l.hasTTL {
+			if l.clock.Since(l.timestamps[curr]) > l.expiresAt {
+				l.stats.Expirations++
+				l.timestamps[curr] = l.clock.Now()
+				return AddAfterExpiration
+			}
+			l.timestamps[curr] = l.clock.Now()
 		}
 		return Replace
 	}
@@ -348,13 +496,22 @@ func (l *Core[K, V]) remove(idx int32) {
 	l.links[curr.next].prev = curr.prev
 }
 
-// removeOld removes the 'Least Recently Used' cache.
-func (l *Core[K, V]) removeOld() {
-	old := l.links[0].next
-	l.remove(old)
+// deleteKey removes a key from the cache.
+func (l *Core[K, V]) deleteKey(idx int32) V {
+	l.remove(idx)
 
-	delete(l.hash, l.nodes[old].key)
+	free := l.links[l.tail].prev
 
-	l.free = old // set the next free index to the dropped cache value
-	l.stats.Evictions++
+	l.links[l.tail].prev = idx
+	l.links[free].next = idx
+	l.links[idx] = link{
+		prev: free,
+		next: l.tail,
+	}
+
+	val := l.nodes[idx].value
+	delete(l.hash, l.nodes[idx].key)
+
+	l.nodes[idx] = node[K, V]{}
+	return val
 }
