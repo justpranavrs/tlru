@@ -7,8 +7,9 @@ package tlru
 import (
 	"errors"
 	"math"
-	"sync/atomic"
+	"time"
 
+	"github.com/justpranavrs/tlru/lruclock"
 	"github.com/justpranavrs/tlru/lrucore"
 	"github.com/justpranavrs/tlru/mux"
 )
@@ -28,6 +29,13 @@ const DefaultShards int = 128
 type Cache[K comparable, V any] interface {
 	// Capacity returns the maximum allocated capacity of the LRU cache.
 	Capacity() int
+
+	// Close safely closes the background clock when TTL is enabled on the cache.
+	Close()
+
+	// Delete removes the key from the cache and returns the evicted value.
+	// It returns false if the key was not found in the cache.
+	Delete() (V, bool)
 
 	// Flush clears the LRU cache of all its keys and values.
 	Flush()
@@ -83,9 +91,9 @@ type LRU[K comparable, V any] struct {
 	// It takes in a key K and outputs a hash [uint32]
 	mux mux.Mux[K]
 
-	// size measures the current allocated space of the cache.
-	// It uses atomic.Int32 to monitor without data races.
-	size atomic.Int32
+	// clock is the background timer to ensure fast time loads
+	// without halting the LRU operations.
+	clock *lruclock.Clock
 }
 
 var (
@@ -103,6 +111,11 @@ var (
 type config struct {
 	shards int
 	mux    any
+
+	// TTL
+	hasTTL    bool
+	expiresAt time.Duration
+	clock     *lruclock.Clock
 }
 
 // Option is used to configure [LRU] when creating an instance using [New] constructor.
@@ -121,8 +134,13 @@ func New[K comparable, V any](capacity int, opts ...Option) (*LRU[K, V], error) 
 	cfg := config{
 		shards: DefaultShards,
 		mux:    nil,
+
+		hasTTL: false,
 	}
 	for _, opt := range opts { // options
+		if opt == nil {
+			continue
+		}
 		if err := opt(&cfg); err != nil {
 			return nil, err
 		}
@@ -148,12 +166,26 @@ func New[K comparable, V any](capacity int, opts ...Option) (*LRU[K, V], error) 
 		capacity: capacity,
 		cache:    make([]*lrucore.Core[K, V], cfg.shards),
 		mux:      hash,
+		clock:    cfg.clock,
+	}
+
+	// ttl and clock logic
+	var c *lrucore.Core[K, V]
+	var err error
+
+	var coreOpts []lrucore.CoreOption
+	if cfg.hasTTL {
+		if lru.clock == nil {
+			lru.clock = lruclock.New(100 * time.Millisecond)
+			lru.clock.Start()
+		}
+		coreOpts = append(coreOpts, lrucore.WithTTL(cfg.expiresAt), lrucore.WithClock(lru.clock))
 	}
 
 	cap := capacity / cfg.shards // create lrucore instances
 	rem := capacity % cfg.shards
 	for i := range rem {
-		c, err := lrucore.New[K, V](1 + cap)
+		c, err = lrucore.New[K, V](1+cap, coreOpts...)
 		if err != nil {
 			if errors.Is(err, lrucore.ErrInvalidCapacity) {
 				return nil, ErrInvalidCapacity
@@ -163,13 +195,34 @@ func New[K comparable, V any](capacity int, opts ...Option) (*LRU[K, V], error) 
 		lru.cache[i] = c
 	}
 	for i := rem; i < cfg.shards; i++ {
-		c, err := lrucore.New[K, V](cap)
+		c, err = lrucore.New[K, V](cap, coreOpts...)
 		if err != nil {
 			return nil, err
 		}
 		lru.cache[i] = c
 	}
 	return lru, nil
+}
+
+// WithClock allows the usage of a custom clock for [Core].
+// It is only initialized if "TTL" is enabled.
+//
+// NOTE: Using WithClock on [New] will not start the clock. Use [lruclock.Clock.Start] to
+// initiate the timer.
+func WithClock(clock *lruclock.Clock) Option {
+	return func(c *config) error {
+		c.clock = clock
+		return nil
+	}
+}
+
+// WithMux requires a custom [mux.Mux] type function. It is used
+// with [LRU] to configure its mux, which is responsible for routing the shards.
+func WithMux[K comparable](cm mux.Mux[K]) Option {
+	return func(c *config) error {
+		c.mux = cm
+		return nil
+	}
 }
 
 // WithShards assigns the [LRU] instance with num shards. Shards are separate instances
@@ -186,11 +239,17 @@ func WithShards(num int) Option {
 	}
 }
 
-// WithMux requires a custom [mux.Mux] type function. It is used
-// with [LRU] to configure its mux, which is responsible for routing the shards.
-func WithMux[K comparable](cm mux.Mux[K]) Option {
+// WithTTL enables (Time-to-Live) for [LRU] across all sharded instances.
+// expiresAt determines the (TTL) duration of an element in the cache.
+//
+// [LRU] uses Absolute TTL if enabled. It uses a clock with a duration of 100ms.
+// To customize the clock, check [WithClock].
+//
+// Enabling TTL creates a Background clock. To close it use [LRU.Close].
+func WithTTL(expiresAt time.Duration) Option {
 	return func(c *config) error {
-		c.mux = cm
+		c.hasTTL = true
+		c.expiresAt = expiresAt
 		return nil
 	}
 }
@@ -201,13 +260,30 @@ func (l *LRU[K, V]) Capacity() int {
 	return l.capacity
 }
 
+// Close safely closes the background clock when TTL is enabled on the cache.
+func (l *LRU[K, V]) Close() {
+	if l.clock != nil {
+		l.clock.Stop()
+	}
+}
+
+// Delete removes the key from the cache and returns the evicted value.
+// It returns false if the key was not found in the cache.
+func (l *LRU[K, V]) Delete(key K) (V, bool) {
+	shard := l.mux(key)
+	value, ok := l.cache[shard].Delete(key)
+	if !ok {
+		return *new(V), false
+	}
+	return value, true
+}
+
 // Flush clears the LRU cache of all its keys and values across
 // all sharded instances.
 func (l *LRU[K, V]) Flush() {
 	for _, c := range l.cache {
 		c.Flush()
 	}
-	l.size.Store(0)
 }
 
 // Get retrieves the cache value using key.
@@ -256,7 +332,11 @@ func (l *LRU[K, V]) Shards() int {
 // Size returns the current size of the LRU cache
 // across all sharded instances.
 func (l *LRU[K, V]) Size() int {
-	return int(l.size.Load())
+	size := 0
+	for i := range l.cache {
+		size += l.cache[i].Size()
+	}
+	return size
 }
 
 // Stats return the current stats of the sharded LRU cache.
@@ -267,6 +347,7 @@ func (l *LRU[K, V]) Stats() lrucore.CoreStats {
 		stats.Hits += st.Hits
 		stats.Misses += st.Misses
 		stats.Evictions += st.Evictions
+		stats.Expirations += st.Expirations
 	}
 	return stats
 }
@@ -278,8 +359,5 @@ func (l *LRU[K, V]) Stats() lrucore.CoreStats {
 func (l *LRU[K, V]) Upsert(key K, value V) lrucore.UpsertState {
 	shard := l.mux(key)
 	state := l.cache[shard].Upsert(key, value)
-	if state == lrucore.AddNoEvict {
-		l.size.Add(1)
-	}
 	return state
 }

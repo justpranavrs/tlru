@@ -67,6 +67,46 @@ func ExampleLRU_Capacity() {
 	// 256
 }
 
+// ExampleLRU_Delete shows an example of how Delete works and showcases
+// the a given key getting evicted from the cache.
+func ExampleLRU_Delete() {
+	cache, err := tlru.New[int, Member](256)
+	if err != nil {
+		fmt.Printf("[ERROR] could not initialize LRU instance: %v", err)
+		return
+	}
+
+	cache.Put(1, Member{
+		Name:  "justpranavrs",
+		Email: "iliketlru@gmail.com",
+	})
+	cache.Put(2, Member{
+		Name:  "welcometotlru",
+		Email: "welcometotlru@gmail.com",
+	})
+
+	val, ok := cache.Delete(1)
+	if !ok {
+		fmt.Println("[DELETE] could not find the key in the cache.")
+	} else {
+		fmt.Printf("[DELETE] Name : %v | Email : %v\n", val.Name, val.Email)
+	}
+	val, ok = cache.Delete(3)
+	if !ok {
+		fmt.Println("[DELETE] could not find the key in the cache.")
+	} else {
+		fmt.Printf("[DELETE] Name : %v | Email : %v\n", val.Name, val.Email)
+	}
+
+	val, ok = cache.Peek(1)
+	fmt.Println(ok)
+
+	// Output:
+	// [DELETE] Name : justpranavrs | Email : iliketlru@gmail.com
+	// [DELETE] could not find the key in the cache.
+	// false
+}
+
 // ExampleLRU_Get shows an example of how Get works and
 // how to handle when the key is not found in the cache.
 func ExampleLRU_Get() {

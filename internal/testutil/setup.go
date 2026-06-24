@@ -14,6 +14,7 @@ import (
 const (
 	opInit = iota
 	opCapacity
+	opDelete
 	opFlush
 	opGet
 	opGetMany
@@ -28,6 +29,8 @@ const (
 // For more details, refer [tlru.Cache]
 type CacheTest[K comparable, V any] interface {
 	Capacity() int
+	Close()
+	Delete(key K) (V, bool)
 	Flush()
 	Get(key K) (V, bool)
 	Peek(key K) (V, bool)
@@ -39,8 +42,8 @@ type CacheTest[K comparable, V any] interface {
 // actions are defined for the fuzz test.
 // flush is removed because fuzz tests are for accuracy.
 var actions = []int{
-	opGet, opGet, opGet, opGet, opGet, opGet, opPeek, opPeek,
-	opPut, opPut, opPut, opPut, opUpsert, opUpsert, opUpsert, opSize,
+	opDelete, opDelete, opGet, opGet, opGet, opGet, opGet, opPeek, opPeek,
+	opPut, opPut, opPut, opUpsert, opUpsert, opUpsert, opSize,
 }
 
 const fuzzBytes int = 2
