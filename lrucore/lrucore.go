@@ -246,7 +246,7 @@ func (l *Core[K, V]) Close() {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	if l.hasTTL {
+	if l.clock != nil {
 		l.clock.Stop()
 	}
 }

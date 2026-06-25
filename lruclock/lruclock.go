@@ -16,7 +16,7 @@ type Clock struct {
 	// Epoch is the Unix timestamp when the clock instance was initialized.
 	epoch int64
 
-	// tick measures the current time in terms of (100 ms).
+	// tick measures the current time in terms of (duration).
 	tick atomic.Int64
 
 	// duration represents the ticker duration
@@ -36,6 +36,7 @@ type Clock struct {
 }
 
 var (
+	// ErrClockRunning is returned by [Clock.Start] when it is called more than once.
 	ErrClockRunning = errors.New("lruclock: clock is already running")
 )
 

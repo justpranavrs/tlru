@@ -52,10 +52,6 @@ type Cache[K comparable, V any] interface {
 	// Put adds a new value to the cache with the given key.
 	Put(key K, value V)
 
-	// Upsert adds a new value to the cache with the given key.
-	// It returns a value based on how the internal state of the cache changed.
-	Upsert(key K, value V) lrucore.UpsertState
-
 	// ResetStats resets the stats of the LRU cache.
 	ResetStats()
 
@@ -67,6 +63,10 @@ type Cache[K comparable, V any] interface {
 
 	// Stats return the current stats of the LRU cache.
 	Stats() lrucore.CoreStats
+
+	// Upsert adds a new value to the cache with the given key.
+	// It returns a value based on how the internal state of the cache changed.
+	Upsert(key K, value V) lrucore.UpsertState
 }
 
 // LRU is the better implementation of [lrucore.Core]. It is a
