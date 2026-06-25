@@ -7,9 +7,7 @@ package tlru
 import (
 	"errors"
 	"math"
-	"time"
 
-	"github.com/justpranavrs/tlru/lruclock"
 	"github.com/justpranavrs/tlru/lrucore"
 	"github.com/justpranavrs/tlru/mux"
 )
@@ -20,9 +18,6 @@ const DefaultShards int = 128
 
 // Cache defines the general implementation of a 'Least Recently Used' cache.
 // It has thread-safe operations.
-//
-// As Items are Added to the Cache, The 'Least Recently Used' key
-// is evicted from the Cache.
 //
 // K represents the type of the key, whereas V represents the type of the Value
 // in the cache
@@ -69,31 +64,27 @@ type Cache[K comparable, V any] interface {
 	Upsert(key K, value V) (lrucore.UpsertState, V)
 }
 
-// LRU is the better implementation of [lrucore.Core]. It is a
-// 'Least Recently Used' cache with many instances of [lrucore.Core]
+// LRU is the better implementation of [lrucore.Shard]. It is a
+// 'Least Recently Used' cache with many instances of [lrucore.Shard]
 // to prevent mutual extension locks on a single instance.
 // It has thread-safe but not a completely lock free operations.
 //
 // It doesn't work on the standard principle of LRU, rather when the mux
-// routes it to a [lrucore.Core] instance. LRU works on shard-local based eviction
+// routes it to a [lrucore.Shard] instance. LRU works on shard-local based eviction
 // not on globally oldest item in the cache.
 //
 // [mux.Mux] takes care of routing the shards to their containers consistently
 // using its hashing algorithm. The default mux is [mux.NewMH32].
-type LRU[K comparable, V any] struct {
+type LRU[K comparable, V any, C lrucore.Shard[K, V]] struct {
 	// capacity represents the maximum allocated space for the LRU cache.
 	capacity int
 
 	// cache is an array of the multiple instances of [lrucore.Core].
-	cache []Cache[K, V]
+	cache []C
 
 	// mux is the router for the shards in the cache array.
 	// It takes in a key K and outputs a hash [uint32]
 	mux mux.Mux[K]
-
-	// clock is the background timer to ensure fast time loads
-	// without halting the LRU operations.
-	clock *lruclock.Clock
 }
 
 var (
@@ -107,19 +98,14 @@ var (
 	ErrInvalidShards = errors.New("invalid number of shards: must be in range [1, 1073741823]")
 )
 
-// config represents the configuration of [LRU]. It should be used with [Option].
-type config struct {
+// lruConfig represents the configuration of [LRU]. It should be used with [LRUOption].
+type lruConfig struct {
 	shards int
 	mux    any
-
-	// TTL
-	hasTTL    bool
-	expiresAt time.Duration
-	clock     *lruclock.Clock
 }
 
-// Option is used to configure [LRU] when creating an instance using [New] constructor.
-type Option func(c *config) error
+// LRUOption is used to configure [LRU] when creating an instance using [New] constructor.
+type LRUOption func(c *lruConfig) error
 
 // New creates a [LRU] instance with the given capacity and options. It creates
 // the required [lrucore.Core] instances, initiates the [mux.Mux] for shard routing.
@@ -129,13 +115,11 @@ type Option func(c *config) error
 //
 // Returns [ErrInvalidCapacity] if capacity is not in the range of int32
 // and greater than or equal to twice the number of shards.
-func New[K comparable, V any](capacity int, opts ...Option) (*LRU[K, V], error) {
+func New[K comparable, V any](capacity int, opts ...LRUOption) (*LRU[K, V, *lrucore.Core[K, V]], error) {
 	// build the config
-	cfg := config{
+	cfg := lruConfig{
 		shards: DefaultShards,
 		mux:    nil,
-
-		hasTTL: false,
 	}
 	for _, opt := range opts { // options
 		if opt == nil {
@@ -144,10 +128,6 @@ func New[K comparable, V any](capacity int, opts ...Option) (*LRU[K, V], error) 
 		if err := opt(&cfg); err != nil {
 			return nil, err
 		}
-	}
-
-	if capacity < int(cfg.shards*2) || (capacity > math.MaxInt32) {
-		return nil, ErrInvalidCapacity
 	}
 
 	// set the mux hash
@@ -162,31 +142,29 @@ func New[K comparable, V any](capacity int, opts ...Option) (*LRU[K, V], error) 
 		hash = mux.NewMH32[K](cfg.shards)
 	}
 
-	// ttl and clock logic
-	var err error
+	return initLRU(capacity, cfg.shards, hash, func(cap int) (*lrucore.Core[K, V], error) {
+		return lrucore.New[K, V](cap)
+	})
+}
 
-	if cfg.hasTTL {
-		if cfg.clock == nil {
-			cfg.clock = lruclock.New(100 * time.Millisecond)
-			_ = cfg.clock.Start()
-		}
+// initLRU creates a [LRU] instance with the provided arguments. It creates shards based on the createShard function.
+func initLRU[K comparable, V any, C lrucore.Shard[K, V]](capacity int, shards int, hash mux.Mux[K], createShard func(cap int) (C, error)) (*LRU[K, V, C], error) {
+	if capacity < int(shards*2) || (capacity > math.MaxInt32) {
+		return nil, ErrInvalidCapacity
 	}
 
-	cache := make([]Cache[K, V], cfg.shards)
+	var err error
+	cache := make([]C, shards)
 
-	cap := capacity / cfg.shards // create lrucore instances
-	rem := capacity % cfg.shards
-	for i := range cfg.shards {
+	cap := capacity / shards // create lrucore instances
+	rem := capacity % shards
+	for i := range shards {
 		sCap := cap
 		if i < rem {
 			sCap++
 		}
 
-		if cfg.hasTTL {
-			cache[i], err = lrucore.NewTTL[K, V](sCap, cfg.expiresAt, lrucore.WithClock(cfg.clock))
-		} else {
-			cache[i], err = lrucore.New[K, V](sCap)
-		}
+		cache[i], err = createShard(sCap)
 		if err != nil {
 			if errors.Is(err, lrucore.ErrInvalidCapacity) {
 				return nil, ErrInvalidCapacity
@@ -194,41 +172,28 @@ func New[K comparable, V any](capacity int, opts ...Option) (*LRU[K, V], error) 
 			return nil, err
 		}
 	}
-	return &LRU[K, V]{
+	return &LRU[K, V, C]{
 		capacity: capacity,
 		cache:    cache,
 		mux:      hash,
-		clock:    cfg.clock,
 	}, nil
-}
-
-// WithClock allows the usage of a custom clock for [Core].
-// It is only initialized if "TTL" is enabled.
-//
-// NOTE: Using WithClock on [New] will not start the clock. Use [lruclock.Clock.Start] to
-// initiate the timer.
-func WithClock(clock *lruclock.Clock) Option {
-	return func(c *config) error {
-		c.clock = clock
-		return nil
-	}
 }
 
 // WithMux requires a custom [mux.Mux] type function. It is used
 // with [LRU] to configure its mux, which is responsible for routing the shards.
-func WithMux[K comparable](cm mux.Mux[K]) Option {
-	return func(c *config) error {
+func WithMux[K comparable](cm mux.Mux[K]) LRUOption {
+	return func(c *lruConfig) error {
 		c.mux = cm
 		return nil
 	}
 }
 
 // WithShards assigns the [LRU] instance with num shards. Shards are separate instances
-// of [lrucore.Core] to prevent mutex locks from slowing down the cache.
+// of [lrucore.Shard] to prevent mutex locks from slowing down the cache.
 //
 // Returns [ErrInvalidShards] if num is not in range [1, 1073741823].
-func WithShards(num int) Option {
-	return func(c *config) error {
+func WithShards(num int) LRUOption {
+	return func(c *lruConfig) error {
 		if num < 1 || (num > (math.MaxInt32 >> 1)) {
 			return ErrInvalidShards
 		}
@@ -237,37 +202,22 @@ func WithShards(num int) Option {
 	}
 }
 
-// WithTTL enables (Time-to-Live) for [LRU] across all sharded instances.
-// expiresAt determines the (TTL) duration of an element in the cache.
-//
-// [LRU] uses Absolute TTL if enabled. It uses a clock with a duration of 100ms.
-// To customize the clock, check [WithClock].
-//
-// Enabling TTL creates a Background clock. To close it use [LRU.Close].
-func WithTTL(expiresAt time.Duration) Option {
-	return func(c *config) error {
-		c.hasTTL = true
-		c.expiresAt = expiresAt
-		return nil
-	}
-}
-
 // Capacity returns the maximum allocated capacity of the LRU cache
 // across all sharded instances of [lrucore.Core].
-func (l *LRU[K, V]) Capacity() int {
+func (l *LRU[K, V, C]) Capacity() int {
 	return l.capacity
 }
 
-// Close safely closes the background clock when TTL is enabled on the cache.
-func (l *LRU[K, V]) Close() {
-	if l.clock != nil {
-		l.clock.Stop()
+// Close safely closes the all the underlying shards with its Close().
+func (l *LRU[K, V, C]) Close() {
+	for _, c := range l.cache {
+		c.Close()
 	}
 }
 
 // Delete removes the key from the cache and returns the evicted value.
 // It returns false if the key was not found in the cache.
-func (l *LRU[K, V]) Delete(key K) (V, bool) {
+func (l *LRU[K, V, C]) Delete(key K) (V, bool) {
 	shard := l.mux(key)
 	value, ok := l.cache[shard].Delete(key)
 	if !ok {
@@ -278,7 +228,7 @@ func (l *LRU[K, V]) Delete(key K) (V, bool) {
 
 // Flush clears the LRU cache of all its keys and values across
 // all sharded instances.
-func (l *LRU[K, V]) Flush() {
+func (l *LRU[K, V, C]) Flush() {
 	for _, c := range l.cache {
 		c.Flush()
 	}
@@ -287,7 +237,7 @@ func (l *LRU[K, V]) Flush() {
 // Get retrieves the cache value using key.
 // It returns false if the key is not found.
 // It updates the key as 'recent' only in its respective shard.
-func (l *LRU[K, V]) Get(key K) (V, bool) {
+func (l *LRU[K, V, C]) Get(key K) (V, bool) {
 	shard := l.mux(key)
 	value, ok := l.cache[shard].Get(key)
 	if !ok {
@@ -299,7 +249,7 @@ func (l *LRU[K, V]) Get(key K) (V, bool) {
 // Peek retrieves the cache value without updating it
 // to be the most recently used.
 // It returns false if the key is not found.
-func (l *LRU[K, V]) Peek(key K) (V, bool) {
+func (l *LRU[K, V, C]) Peek(key K) (V, bool) {
 	shard := l.mux(key)
 	value, ok := l.cache[shard].Peek(key)
 	if !ok {
@@ -311,25 +261,25 @@ func (l *LRU[K, V]) Peek(key K) (V, bool) {
 // Put adds a new value to the cache with the given key.
 // It updates the key as 'recent' only in its respective shard.
 // It evicts the key only from the respective shard the key is linked to.
-func (l *LRU[K, V]) Put(key K, value V) {
+func (l *LRU[K, V, C]) Put(key K, value V) {
 	l.Upsert(key, value)
 }
 
 // ResetStats resets the stats of the sharded LRU cache.
-func (l *LRU[K, V]) ResetStats() {
+func (l *LRU[K, V, C]) ResetStats() {
 	for i := range l.cache {
 		l.cache[i].ResetStats()
 	}
 }
 
 // Shards returns the number of sharded instances in the LRU cache.
-func (l *LRU[K, V]) Shards() int {
+func (l *LRU[K, V, C]) Shards() int {
 	return len(l.cache)
 }
 
 // Size returns the current size of the LRU cache
 // across all sharded instances.
-func (l *LRU[K, V]) Size() int {
+func (l *LRU[K, V, C]) Size() int {
 	size := 0
 	for i := range l.cache {
 		size += l.cache[i].Size()
@@ -338,7 +288,7 @@ func (l *LRU[K, V]) Size() int {
 }
 
 // Stats return the current stats of the sharded LRU cache.
-func (l *LRU[K, V]) Stats() lrucore.CoreStats {
+func (l *LRU[K, V, C]) Stats() lrucore.CoreStats {
 	stats := lrucore.CoreStats{}
 	for i := range l.cache {
 		st := l.cache[i].Stats()
@@ -354,7 +304,7 @@ func (l *LRU[K, V]) Stats() lrucore.CoreStats {
 // It returns a value based on how the internal state of the cache changed.
 // It evicts or updates locally on the shard, instead of global cache.
 // Returns a value [lrucore.UpsertState].
-func (l *LRU[K, V]) Upsert(key K, value V) (lrucore.UpsertState, V) {
+func (l *LRU[K, V, C]) Upsert(key K, value V) (lrucore.UpsertState, V) {
 	shard := l.mux(key)
 	return l.cache[shard].Upsert(key, value)
 }

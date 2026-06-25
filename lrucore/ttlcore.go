@@ -11,23 +11,27 @@ import (
 )
 
 // TTLCore is the implementation of 'LRU' with TTL (Time-To-Live). It
-// operates on an internal clock from [lruclock.Clock] and operates an instance
+// operates on an internal clock from [lruclock.Clock] and operates with an instance
 // of [Core].
 type TTLCore[K comparable, V any] struct {
+	// core represents the main cache which holds the keys and values.
 	core *Core[K, ttlValue[V]]
 
 	// clock is the background timer to ensure fast time loads
 	// without halting the LRU operations.
 	clock *lruclock.Clock
 
-	// expiresAt determines the (time-to-live) duration of an element.
+	// expiresAt determines the default (time-to-live) duration of an element.
 	expiresAt int64
 }
 
 // ttlValue is the wrapper for [Core] with a timestamp and the value.
 type ttlValue[V any] struct {
-	updatedAt int64
-	value     V
+	// expiresAt is the time when the key would get expired.
+	expiresAt int64
+
+	// value is the actual data of the cache.
+	value V
 }
 
 // ttlConfig represents the configuration of [TTLCore]. It should be used with [TTLOption].
@@ -36,12 +40,12 @@ type ttlConfig struct {
 }
 
 // TTLOption is used to configure [TTLCore] when creating an instance using [NewTTL] constructor.
-type TTLOption func(c *ttlConfig) error
+type TTLOption func(c *ttlConfig)
 
 // NewTTL creates an instance of [TTLCore] using the given capacity and sets the expiration
 // timer based on the argument "expiresAt".
 //
-// Returns an [ErrInvalidCapacity] if the capacity is not in [2, 2147483646].
+// Returns an [ErrInvalidCapacity] if the capacity is not in [2, 2147483645].
 func NewTTL[K comparable, V any](capacity int, expiresAt time.Duration, opts ...TTLOption) (*TTLCore[K, V], error) {
 	cache, err := New[K, ttlValue[V]](capacity)
 	if err != nil {
@@ -54,9 +58,7 @@ func NewTTL[K comparable, V any](capacity int, expiresAt time.Duration, opts ...
 		if opt == nil {
 			continue
 		}
-		if err := opt(&cfg); err != nil {
-			return nil, err
-		}
+		opt(&cfg)
 	}
 
 	var clock *lruclock.Clock
@@ -81,9 +83,8 @@ func NewTTL[K comparable, V any](capacity int, expiresAt time.Duration, opts ...
 // NOTE: Using WithClock on [NewTTL] will not start the clock. Use [lruclock.Clock.Start] to
 // initiate the timer.
 func WithClock(clock *lruclock.Clock) TTLOption {
-	return func(c *ttlConfig) error {
+	return func(c *ttlConfig) {
 		c.clock = clock
-		return nil
 	}
 }
 
@@ -158,8 +159,8 @@ func (l *TTLCore[K, V]) Peek(key K) (V, bool) {
 	return l.peekKey(key)
 }
 
-// Put adds a new value to the cache with the given key and updates
-// the timestamp of the value if the value was replaced.
+// Put adds a new value to the cache with the given key and assigns a new
+// timestamp to the key.
 // See [Core.Upsert] for detailed information on cache state transitions.
 func (l *TTLCore[K, V]) Put(key K, value V) {
 	l.core.mu.Lock()
@@ -168,8 +169,8 @@ func (l *TTLCore[K, V]) Put(key K, value V) {
 	l.putKey(key, value)
 }
 
-// PutMany allows the addition of multiple key-value pairs and also updating their timestamps
-// if replaced at the same time under a single internal lock.
+// PutMany allows the addition of multiple key-value pairs and also assigns new timestamps
+// for the keys, at the same time under a single internal lock.
 //
 // The keys and values array should be of the same size. If not they are not of same size,
 // [ErrInvalidBatchSize] is returned.
@@ -212,9 +213,10 @@ func (l *TTLCore[K, V]) Stats() CoreStats {
 // It returns [UpsertState] based on how the internal state of the cache changed.
 //
 // It also returns a value based on [UpsertState]
-//   - [AddNoEvict] returns nothing.
+//   - [AddNoEvict] returns the zero value of V.
 //   - [AddOnEvict] returns the evicted value.
 //   - [Replace] returns the old value the key had.
+//   - [AddAfterExpiration] returns the expired value that was overwritten.
 func (l *TTLCore[K, V]) Upsert(key K, value V) (UpsertState, V) {
 	l.core.mu.Lock()
 	defer l.core.mu.Unlock()
@@ -224,7 +226,7 @@ func (l *TTLCore[K, V]) Upsert(key K, value V) (UpsertState, V) {
 
 // expireKey verifies if the timestamp has expired. If it has, it will evict the key.
 func (l *TTLCore[K, V]) expireKey(idx int32, val ttlValue[V]) (V, bool) {
-	if l.clock.Since(val.updatedAt) > l.expiresAt {
+	if val.expiresAt < l.clock.Now() {
 		l.core.deleteKey(idx)
 		l.core.stats.Expirations++
 
@@ -258,11 +260,11 @@ func (l *TTLCore[K, V]) peekKey(key K) (V, bool) {
 // It also adds up expiration stat, if the replaced key was expired
 func (l *TTLCore[K, V]) putKey(key K, value V) (UpsertState, V) {
 	state, val := l.core.putKey(key, ttlValue[V]{
-		updatedAt: l.clock.Now(),
+		expiresAt: l.clock.Now() + l.expiresAt,
 		value:     value,
 	})
 	if state == Replace {
-		if l.clock.Since(val.updatedAt) > l.expiresAt {
+		if val.expiresAt < l.clock.Now() {
 			l.core.stats.Expirations++
 			return AddAfterExpiration, val.value
 		}

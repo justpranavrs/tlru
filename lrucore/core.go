@@ -10,6 +10,63 @@ import (
 	"sync"
 )
 
+// Shard defines the most basic blueprint of a 'Least Recently Used' cache.
+// It has thread-safe operations.
+//
+// As Items are Added to the Cache, The 'Least Recently Used' key
+// is evicted from the Cache.
+//
+// K represents the type of the key, whereas V represents the type of the Value
+// in the cache
+type Shard[K comparable, V any] interface {
+	// Capacity returns the maximum allocated capacity of the LRU cache.
+	Capacity() int
+
+	// Close safely closes the background clock when TTL is enabled on the cache.
+	Close()
+
+	// Delete removes the key from the cache and returns the evicted value.
+	// It returns false if the key was not found in the cache.
+	Delete(key K) (V, bool)
+
+	// Flush clears the LRU cache of all its keys and values.
+	Flush()
+
+	// Get retrieves the cache value using key.
+	// It returns false if the key is not found.
+	Get(key K) (V, bool)
+
+	// GetMany allows retrieval of multiple keys at the same time under a single internal lock.
+	GetMany(keys []K, values []V, exists []bool) error
+
+	// Peek retrieves the cache value without updating it
+	// to be the most recently used.
+	// It returns false if the key is not found.
+	Peek(key K) (V, bool)
+
+	// Put adds a new value to the cache with the given key.
+	Put(key K, value V)
+
+	// PutMany adds multiple key-value pairs at the same time under a single internal lock.
+	PutMany(keys []K, values []V) error
+
+	// ResetStats resets the stats of the LRU cache.
+	ResetStats()
+
+	// Shards returns the number of sharded instances in the LRU cache.
+	Shards() int
+
+	// Size returns the current size of the LRU cache.
+	Size() int
+
+	// Stats return the current stats of the LRU cache.
+	Stats() CoreStats
+
+	// Upsert adds a new value to the cache with the given key.
+	// It returns a value based on how the internal state of the cache changed.
+	Upsert(key K, value V) (UpsertState, V)
+}
+
 // Core is basic implementation of 'Least Recently Used' Cache.
 // It uses a contiguous array of nodes as opposed to the standard doubly-linked list.
 // It uses a hash map to track the key to the index in the array.
@@ -105,13 +162,13 @@ var (
 	// ErrInvalidBatchSize is returned by batch operations when keys and values do not have the same lengths.
 	ErrInvalidBatchSize = errors.New("invalid LRU batch sizes: keys and values do not have the same lengths")
 
-	// ErrInvalidCapacity is returned by [New] or [NewTTL] when the maximum cache capacity is not in [2, 2147483646].
-	ErrInvalidCapacity = errors.New("invalid LRU cache capacity: must be in the range [2, 2147483646]")
+	// ErrInvalidCapacity is returned by [New] or [NewTTL] when the maximum cache capacity is not in [2, 2147483645].
+	ErrInvalidCapacity = errors.New("invalid LRU cache capacity: must be in the range [2, 2147483645]")
 )
 
 // New creates an instance of [Core] using the given capacity.
 //
-// Returns an [ErrInvalidCapacity] if the capacity is not in [2, 2147483646].
+// Returns an [ErrInvalidCapacity] if the capacity is not in [2, 2147483645].
 func New[K comparable, V any](capacity int) (*Core[K, V], error) {
 	if capacity < 2 || (capacity > math.MaxInt32-2) { // For capacity 1, a variable can be used.
 		return nil, ErrInvalidCapacity
@@ -154,7 +211,7 @@ func (l *Core[K, V]) Capacity() int {
 	return l.capacity
 }
 
-// Close safely closes the background clock on the cache.
+// Close safely closes the background clock of the cache.
 //
 // NOTE: [Core] has no internal clock to safely shutdown. This does nothing.
 func (l *Core[K, V]) Close() {}
@@ -287,7 +344,7 @@ func (l *Core[K, V]) Stats() CoreStats {
 // It returns [UpsertState] based on how the internal state of the cache changed.
 //
 // It also returns a value based on [UpsertState]
-//   - [AddNoEvict] returns nothing.
+//   - [AddNoEvict] returns the zero value of V.
 //   - [AddOnEvict] returns the evicted value.
 //   - [Replace] returns the old value the key had.
 func (l *Core[K, V]) Upsert(key K, value V) (UpsertState, V) {

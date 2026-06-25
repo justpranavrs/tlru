@@ -135,14 +135,14 @@ func ExampleCore_PutMany() {
 	if ok {
 		fmt.Printf("[PUT-MANY] Name : %v | Email : %v\n", val.Name, val.Email)
 	} else {
-		fmt.Printf("[PUT-MANY] Key %d is not present in the cache", keys[38])
+		fmt.Printf("[PUT-MANY] Key %d is not present in the cache", keys[12])
 	}
 
 	val, ok = cache.Peek(23)
 	if ok {
 		fmt.Printf("[PUT-MANY] Name : %v | Email : %v\n", val.Name, val.Email)
 	} else {
-		fmt.Printf("[PUT-MANY] Key %d is not present in the cache", keys[38])
+		fmt.Printf("[PUT-MANY] Key %d is not present in the cache", keys[23])
 	}
 
 	val, ok = cache.Peek(37)
