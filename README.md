@@ -48,7 +48,8 @@
 - `WithMux` option allows the configuration by passing a custom hash function of type `mux.Mux` to the `LRU`.
 
 ### How does `TTL` work?
-- Both `lrucore.Core` and `tlru.LRU` have a `WithTTL` option. Both of these instances use `Absolute TTL`. The timestamp of a `key` in the cache is updated only on `Put` operations and never on `Get` operations.
+- `tlru.LRU` has a `WithTTL` option. It use `Absolute TTL`. The timestamp of a `key` in the cache is updated only on `Put` operations and never on `Get` operations.
+- For `lrucore.Core` with `TTL`, use `NewTTL` which creates an instance of `lrucore.TTLCore`.
 
 For a detailed walkthrough, refer [here](./LRU.md)
 

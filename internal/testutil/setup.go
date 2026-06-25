@@ -35,7 +35,7 @@ type CacheTest[K comparable, V any] interface {
 	Get(key K) (V, bool)
 	Peek(key K) (V, bool)
 	Put(key K, value V)
-	Upsert(key K, value V) lrucore.UpsertState
+	Upsert(key K, value V) (lrucore.UpsertState, V)
 	Size() int
 }
 

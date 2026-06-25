@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+### Added
+- `lrucore.TTLCore`, is the TTL instance of `lrucore.Core`. It can be created with `NewTTL`.
+- `lrucore.WithClock` can allow customization of clock for `lrucore.TTLCore`.
+- More Examples for `GoDoc`.
+
+### Changed
+- `lrucore.Core` no longer supports TTL.
+- `CoreOption` has been renamed to `TTLOption`.
+- `lrucore.WithClock` cannot be used with `lrucore.New`.
+
+### Removed
+- `lrucore.WithTTL` has been removed.
+
 ## [0.5.1]
 Link : [Github Release](https://github.com/justpranavrs/tlru/releases/tag/v0.5.1)
 

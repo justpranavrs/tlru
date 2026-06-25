@@ -90,7 +90,7 @@ cache, err := tlru.New[int, string](25600, tlru.WithMux(CustomMux[int]))
 ```
 
 ### Enabling TTL(Time-To-Live)
-The `WithTTL` option enables TTL and is available for both `lrucore.Core` or `tlru.LRU`. It uses `Absolute TTL`, which does not update the timestamp for the `key` during a `Get` operation.
+The `WithTTL` option enables TTL and is available for `tlru.LRU`. It uses `Absolute TTL`, which does not update the timestamp for the `key` during a `Get` operation.
 
 The below examples demonstrates how to create a cache with a `TTL` of `5 hours`.
 ```go
@@ -98,6 +98,11 @@ cache, err := tlru.New[int, string](25600, tlru.WithTTL(5 * time.Hour))
 ```
 
 When a cache is created, a background clock, which is a goroutine is spawned. To safely close the goroutine, calling `cache.Close()` is the best and recommended practice.
+
+For a single instance `lrucore.Core` with TTL, `lrucore.TTLCore` is available, and it can be created using `NewTTL`.
+```go
+cache, err := lrucore.NewTTL[int, string](25600, 5 * time.Hour)
+```
 
 #### Using a Custom Clock
 LRU Cache with TTL uses a background clock instead of the CPU's clock to reduce the lock contention due to `sync/Mutex` by using heavy operations inside a lock.

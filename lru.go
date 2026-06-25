@@ -35,7 +35,7 @@ type Cache[K comparable, V any] interface {
 
 	// Delete removes the key from the cache and returns the evicted value.
 	// It returns false if the key was not found in the cache.
-	Delete() (V, bool)
+	Delete(key K) (V, bool)
 
 	// Flush clears the LRU cache of all its keys and values.
 	Flush()
@@ -66,7 +66,7 @@ type Cache[K comparable, V any] interface {
 
 	// Upsert adds a new value to the cache with the given key.
 	// It returns a value based on how the internal state of the cache changed.
-	Upsert(key K, value V) lrucore.UpsertState
+	Upsert(key K, value V) (lrucore.UpsertState, V)
 }
 
 // LRU is the better implementation of [lrucore.Core]. It is a
@@ -85,7 +85,7 @@ type LRU[K comparable, V any] struct {
 	capacity int
 
 	// cache is an array of the multiple instances of [lrucore.Core].
-	cache []*lrucore.Core[K, V]
+	cache []Cache[K, V]
 
 	// mux is the router for the shards in the cache array.
 	// It takes in a key K and outputs a hash [uint32]
@@ -162,46 +162,44 @@ func New[K comparable, V any](capacity int, opts ...Option) (*LRU[K, V], error) 
 		hash = mux.NewMH32[K](cfg.shards)
 	}
 
-	lru := &LRU[K, V]{
-		capacity: capacity,
-		cache:    make([]*lrucore.Core[K, V], cfg.shards),
-		mux:      hash,
-		clock:    cfg.clock,
-	}
-
 	// ttl and clock logic
-	var c *lrucore.Core[K, V]
 	var err error
 
-	var coreOpts []lrucore.CoreOption
 	if cfg.hasTTL {
-		if lru.clock == nil {
-			lru.clock = lruclock.New(100 * time.Millisecond)
-			_ = lru.clock.Start()
+		if cfg.clock == nil {
+			cfg.clock = lruclock.New(100 * time.Millisecond)
+			_ = cfg.clock.Start()
 		}
-		coreOpts = append(coreOpts, lrucore.WithTTL(cfg.expiresAt), lrucore.WithClock(lru.clock))
 	}
+
+	cache := make([]Cache[K, V], cfg.shards)
 
 	cap := capacity / cfg.shards // create lrucore instances
 	rem := capacity % cfg.shards
-	for i := range rem {
-		c, err = lrucore.New[K, V](1+cap, coreOpts...)
+	for i := range cfg.shards {
+		sCap := cap
+		if i < rem {
+			sCap++
+		}
+
+		if cfg.hasTTL {
+			cache[i], err = lrucore.NewTTL[K, V](sCap, cfg.expiresAt, lrucore.WithClock(cfg.clock))
+		} else {
+			cache[i], err = lrucore.New[K, V](sCap)
+		}
 		if err != nil {
 			if errors.Is(err, lrucore.ErrInvalidCapacity) {
 				return nil, ErrInvalidCapacity
 			}
 			return nil, err
 		}
-		lru.cache[i] = c
 	}
-	for i := rem; i < cfg.shards; i++ {
-		c, err = lrucore.New[K, V](cap, coreOpts...)
-		if err != nil {
-			return nil, err
-		}
-		lru.cache[i] = c
-	}
-	return lru, nil
+	return &LRU[K, V]{
+		capacity: capacity,
+		cache:    cache,
+		mux:      hash,
+		clock:    cfg.clock,
+	}, nil
 }
 
 // WithClock allows the usage of a custom clock for [Core].
@@ -356,8 +354,7 @@ func (l *LRU[K, V]) Stats() lrucore.CoreStats {
 // It returns a value based on how the internal state of the cache changed.
 // It evicts or updates locally on the shard, instead of global cache.
 // Returns a value [lrucore.UpsertState].
-func (l *LRU[K, V]) Upsert(key K, value V) lrucore.UpsertState {
+func (l *LRU[K, V]) Upsert(key K, value V) (lrucore.UpsertState, V) {
 	shard := l.mux(key)
-	state := l.cache[shard].Upsert(key, value)
-	return state
+	return l.cache[shard].Upsert(key, value)
 }

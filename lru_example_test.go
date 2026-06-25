@@ -313,7 +313,7 @@ func ExampleLRU_Upsert() {
 		return
 	}
 
-	state := cache.Upsert(1, Member{
+	state, _ := cache.Upsert(1, Member{
 		Name:  "justpranavrs",
 		Email: "iliketlru@gmail.com",
 	})
@@ -327,7 +327,7 @@ func ExampleLRU_Upsert() {
 	_, ok = cache.Peek(1)
 	fmt.Println(ok)
 
-	state = cache.Upsert(2, Member{
+	state, _ = cache.Upsert(2, Member{
 		Name:  "welcometotlru",
 		Email: "welcometotlru@gmail.com",
 	})
@@ -338,12 +338,13 @@ func ExampleLRU_Upsert() {
 	_, ok = cache.Peek(2)
 	fmt.Println(ok)
 
-	state = cache.Upsert(3, Member{
+	state, val := cache.Upsert(3, Member{
 		Name:  "justpranavrs",
 		Email: "tlruiscool@gmail.com",
 	})
 	if state == lrucore.AddOnEvict {
 		fmt.Println("[UPSERT] : Add on Eviction")
+		fmt.Printf("[UPSERT] Name : %v | Email : %v\n", val.Name, val.Email)
 	}
 
 	_, ok = cache.Peek(1)
@@ -352,12 +353,13 @@ func ExampleLRU_Upsert() {
 	_, ok = cache.Peek(3)
 	fmt.Println(ok)
 
-	state = cache.Upsert(3, Member{
+	state, val = cache.Upsert(3, Member{
 		Name:  "justpranavrs",
-		Email: "tlruiscool@gmail.com",
+		Email: "jprs-tlru@gmail.com",
 	})
 	if state == lrucore.Replace {
 		fmt.Println("[UPSERT] : Value Replaced")
+		fmt.Printf("[UPSERT] Name : %v | Email : %v\n", val.Name, val.Email)
 	}
 
 	// Output:
@@ -367,7 +369,9 @@ func ExampleLRU_Upsert() {
 	// [UPSERT] : Add without Eviction
 	// true
 	// [UPSERT] : Add on Eviction
+	// [UPSERT] Name : justpranavrs | Email : iliketlru@gmail.com
 	// false
 	// true
 	// [UPSERT] : Value Replaced
+	// [UPSERT] Name : justpranavrs | Email : tlruiscool@gmail.com
 }

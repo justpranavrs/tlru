@@ -58,7 +58,7 @@ func TestCache(t *testing.T, ops []testCacheOp, init TestInit) {
 				t.Fatalf("\n[ERROR]:[SIZE] expected : %d, value : %d, tick: %d", op.expectedNumber, size, i)
 			}
 		case opUpsert:
-			state := cache.Upsert(op.key, op.value)
+			state, _ := cache.Upsert(op.key, op.value)
 			if op.expectedNumber != int(state) {
 				t.Fatalf("\n[ERROR]:[UPSERT] expected : %d, value : %d, tick: %d", op.expectedNumber, state, i)
 			}
@@ -207,7 +207,7 @@ func FuzzCache(f *testing.F, cache CacheTest[int, User], mux mux.Mux[int], numOp
 			case opUpsert:
 				var st lrucore.UpsertState
 
-				ste := cache.Upsert(key, user)
+				ste, _ := cache.Upsert(key, user)
 				if !isCached {
 					if size[shard] >= maxSize {
 						idx := evictKey(tick, shard, mux)
