@@ -5,6 +5,8 @@
 package lruclock
 
 import (
+	"errors"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -23,11 +25,23 @@ type Clock struct {
 	// ticker makes sure there is no time drift.
 	ticker *time.Ticker
 
+	// running represents whether the clock is ticking.
+	running atomic.Bool
+
 	// done is a channel to safely exit the goroutine.
 	done chan struct{}
+
+	// once helps perform only one Stop.
+	once sync.Once
 }
 
+var (
+	ErrClockRunning = errors.New("lruclock: clock is already running")
+)
+
 // New creates and initializes a new [Clock] with the specified tick duration.
+// It is a One-time use clock.
+// It can only [Clock.Start] and [Clock.Stop] exactly once.
 func New(d time.Duration) *Clock {
 	return &Clock{
 		epoch:    time.Now().Unix(),
@@ -35,6 +49,11 @@ func New(d time.Duration) *Clock {
 		done:     make(chan struct{}),
 		duration: d,
 	}
+}
+
+// Active returns true if the clock is running else returns false.
+func (c *Clock) Active() bool {
+	return c.running.Load()
 }
 
 // Duration returns the time duration of the clock's ticker.
@@ -53,7 +72,12 @@ func (c *Clock) Since(t int64) int64 {
 }
 
 // Start spawns a background goroutine to update a clock tick.
-func (c *Clock) Start() {
+// It can only start the goroutine once.
+func (c *Clock) Start() error {
+	if !c.running.CompareAndSwap(false, true) {
+		return ErrClockRunning
+	}
+
 	c.tick.Store(0)
 	go func() {
 		for {
@@ -65,12 +89,16 @@ func (c *Clock) Start() {
 			}
 		}
 	}()
+	return nil
 }
 
 // Stop stops the clock and safely exits the goroutine.
 func (c *Clock) Stop() {
-	c.ticker.Stop()
-	close(c.done)
+	c.once.Do(func() {
+		c.running.Store(false)
+		c.ticker.Stop()
+		close(c.done)
+	})
 }
 
 // Now returns the current tick count.
