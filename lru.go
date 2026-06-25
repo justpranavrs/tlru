@@ -177,7 +177,7 @@ func New[K comparable, V any](capacity int, opts ...Option) (*LRU[K, V], error) 
 	if cfg.hasTTL {
 		if lru.clock == nil {
 			lru.clock = lruclock.New(100 * time.Millisecond)
-			lru.clock.Start()
+			_ = lru.clock.Start()
 		}
 		coreOpts = append(coreOpts, lrucore.WithTTL(cfg.expiresAt), lrucore.WithClock(lru.clock))
 	}

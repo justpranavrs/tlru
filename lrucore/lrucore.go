@@ -202,7 +202,7 @@ func New[K comparable, V any](capacity int, opts ...CoreOption) (*Core[K, V], er
 			duration = cfg.clock.Duration()
 		} else {
 			lru.clock = lruclock.New(duration)
-			lru.clock.Start()
+			_ = lru.clock.Start()
 		}
 		lru.expiresAt = int64(cfg.expiresAt / duration)
 	}
