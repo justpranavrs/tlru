@@ -13,26 +13,26 @@ import (
 )
 
 // PoolTLRU is the better implementation of [lrucore.TLRU]. It creates
-// many instances of [lrucore.TLRU] and works based on [LRU].
+// many instances of [lrucore.TLRU] and works based on [PoolLRU].
 // It manages a unified clock for all the separate instances.
 type PoolTLRU[K comparable, V any] struct {
 	pool[K, V, *lrucore.TLRU[K, V]]
 	clock *lruclock.Clock
 }
 
-// tlruConfig represents the configuration of [TLRU]. It should be used with [TLRUOption].
+// tlruConfig represents the configuration of [PoolTLRU]. It should be used with [TLRUOption].
 type tlruConfig struct {
 	lruConfig
 	clock   *lruclock.Clock
 	sliding bool
 }
 
-// TLRUOption is used to configure [TLRU] when creating an instance using [NewWithTTL] constructor.
+// TLRUOption is used to configure [PoolTLRU] when creating an instance using [NewWithTTL] constructor.
 type TLRUOption interface {
 	apply(c *tlruConfig) error
 }
 
-// tlruOpt represents [TLRU] only options.
+// tlruOpt represents [PoolTLRU] only options.
 type tlruOpt func(c *tlruConfig) error
 
 // apply is an adapter from [tlruOpt] to [TLRUOption].
@@ -45,7 +45,7 @@ func (f LRUOption) apply(c *tlruConfig) error {
 	return f(&c.lruConfig)
 }
 
-// NewWithTTL creates a [TLRU] instance with the given capacity, ttl and options. It creates
+// NewWithTTL creates a [PoolTLRU] instance with the given capacity, ttl and options. It creates
 // the required [lrucore.TLRU] instances, initiates the [mux.Mux] for shard routing.
 // It defaults to the Mux with hash/maphash algorithm. Check `tlru/mux` package for alternatives.
 //

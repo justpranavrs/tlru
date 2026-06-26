@@ -126,9 +126,6 @@ func WithSliding() TTLOption {
 
 // Close safely closes the background clock when TTL is enabled on the cache.
 func (t *TLRU[K, V]) Close() {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
 	t.lru.Close()
 }
 

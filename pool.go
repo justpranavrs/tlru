@@ -61,7 +61,7 @@ type Pool[K comparable, V any] interface {
 	Upsert(key K, value V) (lrucore.UpsertState, V)
 }
 
-// pool is the internal sharding container used by [LRU] and [TLRU].
+// pool is the internal sharding container used by [PoolLRU] and [PoolTLRU].
 // It handles routing via [mux.Mux] and maintains the shards.
 type pool[K comparable, V any, C lrucore.Shard[K, V]] struct {
 	// capacity represents the maximum allocated space for the LRU cache.

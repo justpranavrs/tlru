@@ -11,15 +11,15 @@ import (
 )
 
 // TTLShard defines the blueprint of a 'Time-Aware Least Recently Used'.
-// It implements [Core].
+// It implements [Shard].
 type TTLShard[K comparable, V any] interface {
 	Shard[K, V]
 
-	// Check [Core.Get] on how Get works.
+	// Check [Shard.Get] on how Get works.
 	// It also returns the remaining TTL in the key if it was found in the cache.
 	GetWithTTL(key K) (V, time.Duration, bool)
 
-	// Check [Core.Peek] on how Peek works.
+	// Check [Shard.Peek] on how Peek works.
 	// It also returns the remaining TTL in the key if it was found in the cache.
 	PeekWithTTL(key K) (V, time.Duration, bool)
 
@@ -39,11 +39,12 @@ type TTLShard[K comparable, V any] interface {
 
 	// UpsertWithTTL adds a new value to the cache with the given key and the provided ttl value.
 	//
-	// Check [Core.Upsert] on how Upsert works.
+	// Check [Shard.Upsert] on how Upsert works.
 	UpsertWithTTL(key K, value V, ttl time.Duration) (UpsertState, V)
 }
 
-// tlruBase
+// tlruBase extends [base] for TTL support. It is not safe
+// for concurrent workloads.
 type tlruBase[K comparable, V any] struct {
 	// base represents the main cache which holds the keys and values.
 	base *base[K, ttlValue[V]]
@@ -60,7 +61,7 @@ type tlruBase[K comparable, V any] struct {
 	sliding bool
 }
 
-// ttlValue is the wrapper for [Core] with a timestamp and the value.
+// ttlValue is the wrapper for [LRU] with a timestamp and the value.
 type ttlValue[V any] struct {
 	// expiresAt is the time when the key would get expired.
 	expiresAt int64
@@ -145,7 +146,7 @@ func (l *tlruBase[K, V]) GetMany(keys []K, values []V, exists []bool) error {
 	return nil
 }
 
-// Check [tlruBase.Get] on how Get works.
+// Check [TLRU.Get] on how Get works.
 // It also returns the remaining TTL in the key if it was found in the cache.
 func (l *tlruBase[K, V]) GetWithTTL(key K) (V, time.Duration, bool) {
 	return l.getKey(key)
@@ -159,7 +160,7 @@ func (l *tlruBase[K, V]) Peek(key K) (V, bool) {
 	return val, ok
 }
 
-// Check [tlruBase.Peek] on how Peek works.
+// Check [TLRU.Peek] on how Peek works.
 // It also returns the remaining TTL in the key if it was found in the cache.
 func (l *tlruBase[K, V]) PeekWithTTL(key K) (V, time.Duration, bool) {
 	return l.peekKey(key)
@@ -168,9 +169,9 @@ func (l *tlruBase[K, V]) PeekWithTTL(key K) (V, time.Duration, bool) {
 // Put adds a new value to the cache with the given key and assigns a new
 // timestamp to the key using the default TTL.
 //
-// See [tlruBase.Upsert] for detailed information on cache state transitions.
+// See [TLRU.Upsert] for detailed information on cache state transitions.
 //
-// See [tlruBase.PutWithTTL] for adding keys with custom TTL.
+// See [TLRU.PutWithTTL] for adding keys with custom TTL.
 func (l *tlruBase[K, V]) Put(key K, value V) {
 	l.putKey(key, value, l.ttl)
 }
@@ -249,7 +250,7 @@ func (l *tlruBase[K, V]) Upsert(key K, value V) (UpsertState, V) {
 // UpsertWithTTL adds a new value to the cache with the given key and the provided ttl value.
 // The ttl value is rounded off in terms of its internal clock ticks.
 //
-// Check [tlruBase.Upsert] on how Upsert works.
+// Check [TLRU.Upsert] on how Upsert works.
 func (l *tlruBase[K, V]) UpsertWithTTL(key K, value V, ttl time.Duration) (UpsertState, V) {
 	return l.putKey(key, value, l.clock.Ticks(ttl))
 }

@@ -26,7 +26,7 @@ const (
 )
 
 // CacheTest is a testing interface for the LRU instances.
-// For more details, refer [tlru.Cache]
+// For more details, refer [tlru.Pool]
 type CacheTest[K comparable, V any] interface {
 	Capacity() int
 	Delete(key K) (V, bool)
