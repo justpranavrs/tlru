@@ -58,17 +58,8 @@ type Cluster[K comparable, V any] interface {
 	Upsert(key K, value V) (lrucore.UpsertState, V)
 }
 
-// coreCluster is the better implementation of [lrucore.Shard]. It is a
-// 'Least Recently Used' cache with many instances of [lrucore.Shard]
-// to prevent mutual extension locks on a single instance.
-// It has thread-safe but not a completely lock free operations.
-//
-// It doesn't work on the standard principle of LRU, rather when the mux
-// routes it to a [lrucore.Shard] instance. LRU works on shard-local based eviction
-// not on globally oldest item in the cache.
-//
-// [mux.Mux] takes care of routing the shards to their containers consistently
-// using its hashing algorithm. The default mux is [mux.NewMH32].
+// coreCluster is the internal sharding container used by [LRU] and [TLRU].
+// It handles routing via [mux.Mux] and maintains the shards.
 type coreCluster[K comparable, V any, C lrucore.Shard[K, V]] struct {
 	// capacity represents the maximum allocated space for the LRU cache.
 	capacity int
@@ -220,6 +211,11 @@ func (l *coreCluster[K, V, C]) Stats() lrucore.CoreStats {
 // It returns a value based on how the internal state of the cache changed.
 // It evicts or updates locally on the shard, instead of global cache.
 // Returns a value [lrucore.UpsertState].
+//
+// It also returns a value based on [lrucore.UpsertState]
+//   - [lrucore.AddNoEvict] returns the zero value of V.
+//   - [lrucore.AddOnEvict] returns the evicted value.
+//   - [lrucore.Replace] returns the old value the key had.
 func (l *coreCluster[K, V, C]) Upsert(key K, value V) (lrucore.UpsertState, V) {
 	shard := l.mux(key)
 	return l.shards[shard].Upsert(key, value)

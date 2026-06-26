@@ -15,7 +15,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - More Examples for `GoDoc`. 
 
 ### Changed
-- `tlru.LRU[K comparable, V any]` is now `tlru.LRU[K comparable, V any, C lrucore.Shard]`.
 - `lrucore.Core` no longer supports TTL.
 - `Option` has been renamed to `LRUOption`.
 - `CoreOption` has been renamed to `TTLOption`.
