@@ -10,6 +10,7 @@ Hello, This document is designed to help you get started with `tlru` and how to 
   - [Using the `tlru/mux` package](#using-the-tlrumux-package)
   - [Using a customized mux algorithm](#using-a-customized-mux-algorithm)
 - [Enabling TTL(Time-To-Live)](#enabling-ttltime-to-live)
+  - [Using Sliding TTL](#using-sliding-ttl)
   - [Using a Custom Clock](#using-a-custom-clock)
 
 ### Getting Started
@@ -102,6 +103,14 @@ When a cache is created, a background clock, which is a goroutine is spawned. To
 For a single instance `lrucore.Core` with TTL, `lrucore.TTLCore` is available, and it can be created using `lrucore.NewTTL`.
 ```go
 cache, err := lrucore.NewTTL[int, string](25600, 5 * time.Hour)
+```
+
+#### Using Sliding TTL
+The `WithSliding` option enables `Sliding TTL` which updates the timestamps of the keys during `Get` and `Peek` operations too.
+
+The below examples demonstrates how to create a cache with `Sliding TTL`.
+```go
+cache, err := tlru.NewTTL[int, string](25600, 5 * time.Hour, WithSliding())
 ```
 
 #### Using a Custom Clock

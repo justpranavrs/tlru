@@ -8,11 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 ### Added
 - `tlru.TLRU`, is the TTL instance of `tlru.LRU`. It can be created with `NewTTL`.
+- `lrucore.TTLCore`, is the TTL instance of `lrucore.Core`. It can be created with `NewTTL`. 
+- `WithSliding` option enables `Sliding TTL` and is available for both `tlru.TLRU` and `lrucore.TTLCore`.
+- `GetWithTTL`, `PeekWithTTL`, `PutWithTTL`, `Refresh`, `SetTTL`, `TTL` and `UpsertWithTTL` have been added to `tlru.TLRU` and `lrucore.TTLCore`.
 - `tlru.WithClock` can allow customization of clock for `tlru.TLRU`.
-- `lrucore.TTLCore`, is the TTL instance of `lrucore.Core`. It can be created with `NewTTL`.
 - `lrucore.WithClock` can allow customization of clock for `lrucore.TTLCore`.
 - `lrucore.Shard` interface representing `lrucore.Core` and `lrucore.TTLCore`
 - More Examples for `GoDoc`. 
+- `Contains` is brought back after its removal in `v0.4.0` for `DX`.
 
 ### Changed
 - `lrucore.Core` no longer supports TTL.

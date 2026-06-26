@@ -106,3 +106,8 @@ func (c *Clock) Stop() {
 func (c *Clock) Now() int64 {
 	return c.tick.Load()
 }
+
+// Until returns the ticks until t.
+func (c *Clock) Until(t int64) int64 {
+	return t - c.tick.Load()
+}

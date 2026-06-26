@@ -22,6 +22,9 @@ type Shard[K comparable, V any] interface {
 	// Capacity returns the maximum allocated capacity of the LRU cache.
 	Capacity() int
 
+	// Contains checks whether the key is present in the Cache.
+	Contains(key K) bool
+
 	// Delete removes the key from the cache and returns the evicted value.
 	// It returns false if the key was not found in the cache.
 	Delete(key K) (V, bool)
@@ -203,6 +206,15 @@ func New[K comparable, V any](capacity int) (*Core[K, V], error) {
 // Capacity returns the maximum allocated capacity of the LRU cache.
 func (l *Core[K, V]) Capacity() int {
 	return l.capacity
+}
+
+// Contains checks whether the key is present in the Cache.
+func (l *Core[K, V]) Contains(key K) bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	_, ok := l.peekKey(key)
+	return ok
 }
 
 // Delete removes the key from the cache and returns the evicted value.

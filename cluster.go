@@ -122,6 +122,12 @@ func (l *cluster[K, V, C]) Capacity() int {
 	return l.capacity
 }
 
+// Contains checks whether the key is present in the LRU cache.
+func (l *cluster[K, V, C]) Contains(key K) bool {
+	shard := l.mux(key)
+	return l.shards[shard].Contains(key)
+}
+
 // Delete removes the key from the cache and returns the evicted value.
 // It returns false if the key was not found in the cache.
 func (l *cluster[K, V, C]) Delete(key K) (V, bool) {

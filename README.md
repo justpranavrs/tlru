@@ -49,6 +49,7 @@
 
 ### How does `TTL` work?
 - `tlru.TLRU` and `lrucore.TTLCore` are TTL implementations of `tlru.LRU` and `lrucore.Core` respectively. They use `Absolute TTL`. The timestamp of a `key` in the cache is updated only on `Put` operations and never on `Get` operations.
+- `WithSliding` on these instances enable `Sliding TTL` instead of the default `Absolute TTL`. `Sliding TTL` ensures timestamp updates on `Get` and `Peek` operations too.
 
 For a detailed walkthrough, refer [here](./LRU.md)
 
