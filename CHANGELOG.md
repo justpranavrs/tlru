@@ -5,13 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [v0.6.1]
+## [v0.6.1] - 2026-06-26
 Link : [Github Release](https://github.com/justpranavrs/tlru/releases/tag/v0.6.1)
 
 ### Fixed
 - `WithSliding` never applied on `lrucore.TTLCore`.
 
-## [v0.6.0]
+## [v0.6.0] - 2026-06-26
 Link : [Github Release](https://github.com/justpranavrs/tlru/releases/tag/v0.6.0)
 
 ### Added

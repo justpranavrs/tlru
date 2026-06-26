@@ -154,7 +154,11 @@ func (l *TTLCore[K, V]) Capacity() int {
 
 // Contains checks whether the key is present in the Cache.
 func (l *TTLCore[K, V]) Contains(key K) bool {
-	return l.core.Contains(key)
+	l.core.mu.Lock()
+	defer l.core.mu.Unlock()
+
+	_, _, ok := l.peekKey(key)
+	return ok
 }
 
 // Close safely closes the background clock when TTL is enabled on the cache.
