@@ -100,7 +100,10 @@ func NewTTL[K comparable, V any](capacity int, ttl time.Duration, opts ...TTLOpt
 	}
 
 	// build the config
-	cfg := ttlConfig{}
+	cfg := ttlConfig{
+		clock: nil,
+		sliding: false,
+	}
 	for _, opt := range opts { // options
 		if opt == nil {
 			continue
@@ -120,6 +123,7 @@ func NewTTL[K comparable, V any](capacity int, ttl time.Duration, opts ...TTLOpt
 		core:  cache,
 		clock: clock,
 		ttl:   clock.Ticks(ttl),
+		sliding: cfg.sliding,
 	}, nil
 }
 
@@ -353,7 +357,7 @@ func (l *TTLCore[K, V]) UpsertWithTTL(key K, value V, ttl time.Duration) (Upsert
 
 // expireKey verifies if the timestamp has expired. If it has, it will evict the key.
 func (l *TTLCore[K, V]) expireKey(idx int32, val ttlValue[V]) (V, time.Duration, bool) {
-	if val.expiresAt < l.clock.Now() {
+	if val.expiresAt <= l.clock.Now() {
 		l.core.deleteKey(idx)
 		l.core.stats.Expirations++
 
@@ -395,7 +399,7 @@ func (l *TTLCore[K, V]) putKey(key K, value V, ttl int64) (UpsertState, V) {
 		value:     value,
 	})
 	if state == Replace {
-		if val.expiresAt < l.clock.Now() {
+		if val.expiresAt <= l.clock.Now() {
 			l.core.stats.Expirations++
 			return AddAfterExpiration, val.value
 		}

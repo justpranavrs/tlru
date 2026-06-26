@@ -110,7 +110,7 @@ func NewTTL[K comparable, V any](capacity int, ttl time.Duration, opts ...TLRUOp
 	}, nil
 }
 
-// WithClock allows the usage of a custom clock for [TTLCore].
+// WithClock allows the usage of a custom clock for [TLRU].
 // It is only initialized if "TTL" is enabled.
 //
 // NOTE: Using WithClock on [NewTTL] will not start the clock. Use [lruclock.Clock.Start] to
@@ -124,8 +124,8 @@ func WithClock(clock *lruclock.Clock) tlruOpt {
 
 // WithSliding enables Sliding TTL on the LRU cache.
 //
-// It will update the timestamp of the key on [TTLCore.Get] and
-// [TTLCore.Put].
+// It will update the timestamp of the key on [TLRU.Get] and
+// [TLRU.Put].
 func WithSliding() tlruOpt {
 	return func(c *tlruConfig) error {
 		c.sliding = true
