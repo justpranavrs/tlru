@@ -27,7 +27,7 @@ const DefaultShards int = 128
 // [mux.Mux] takes care of routing the shards to their containers consistently
 // using its hashing algorithm. The default mux is [mux.NewMH32].
 type LRU[K comparable, V any] struct {
-	coreCluster[K, V, *lrucore.Core[K, V]]
+	cluster[K, V, *lrucore.Core[K, V]]
 }
 
 // lruConfig represents the configuration of [LRU]. It should be used with [LRUOption].
@@ -77,12 +77,12 @@ func New[K comparable, V any](capacity int, opts ...LRUOption) (*LRU[K, V], erro
 	createShard := func(cap int) (*lrucore.Core[K, V], error) {
 		return lrucore.New[K, V](cap)
 	}
-	cluster, err := buildCluster(capacity, cfg.shards, hash, createShard)
+	cluster, err := assemble(capacity, cfg.shards, hash, createShard)
 	if err != nil {
 		return nil, err
 	}
 	return &LRU[K, V]{
-		coreCluster: cluster,
+		cluster: cluster,
 	}, nil
 }
 

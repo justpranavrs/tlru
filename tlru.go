@@ -16,7 +16,7 @@ import (
 // many instances of [lrucore.TTLCore] and works based on [LRU].
 // It manages a unified clock for all the separate instances.
 type TLRU[K comparable, V any] struct {
-	coreCluster[K, V, *lrucore.TTLCore[K, V]]
+	cluster[K, V, *lrucore.TTLCore[K, V]]
 	clock *lruclock.Clock
 }
 
@@ -90,14 +90,14 @@ func NewTTL[K comparable, V any](capacity int, expiresAt time.Duration, opts ...
 	createShard := func(cap int) (*lrucore.TTLCore[K, V], error) {
 		return lrucore.NewTTL[K, V](cap, expiresAt, lrucore.WithClock(cfg.clock))
 	}
-	cluster, err := buildCluster(capacity, cfg.shards, hash, createShard)
+	cluster, err := assemble(capacity, cfg.shards, hash, createShard)
 	if err != nil {
 		return nil, err
 	}
 
 	return &TLRU[K, V]{
-		coreCluster: cluster,
-		clock:       cfg.clock,
+		cluster: cluster,
+		clock:   cfg.clock,
 	}, nil
 }
 
