@@ -192,12 +192,6 @@ func (l *TTLCore[K, V]) ResetStats() {
 	l.core.ResetStats()
 }
 
-// Shards returns the number of sharded instances in the LRU cache.
-// For [TTLCore], this is always 1.
-func (l *TTLCore[K, V]) Shards() int {
-	return l.core.Shards()
-}
-
 // Size returns the current size of the LRU cache.
 func (l *TTLCore[K, V]) Size() int {
 	return l.core.Size()

@@ -50,9 +50,6 @@ type Shard[K comparable, V any] interface {
 	// ResetStats resets the stats of the LRU cache.
 	ResetStats()
 
-	// Shards returns the number of sharded instances in the LRU cache.
-	Shards() int
-
 	// Size returns the current size of the LRU cache.
 	Size() int
 
@@ -308,12 +305,6 @@ func (l *Core[K, V]) ResetStats() {
 	defer l.mu.Unlock()
 
 	l.stats = CoreStats{}
-}
-
-// Shards returns the number of sharded instances in the LRU cache.
-// For [Core], this is always 1.
-func (l *Core[K, V]) Shards() int {
-	return 1
 }
 
 // Size returns the current size of the LRU cache.
