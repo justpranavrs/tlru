@@ -7,6 +7,9 @@ name: CI Pipeline
 on:
   pull_request:
     branches: ['main']
+    paths:
+      - '**/*.go'
+      - 'go.mod'
 
 jobs:
   test:

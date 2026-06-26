@@ -1,6 +1,4 @@
-STRESS_PATH=./benchmark/stress.txt
-
-.PHONY: fmt lint test fuzz_core fuzz bench race stress
+.PHONY: fmt lint test fuzz_core fuzz bench race
 
 fmt:
 	goimports -w .
@@ -22,6 +20,3 @@ bench:
 
 race:
 	go test -race ./... -timeout 5m
-
-stress:
-	go test -bench=. -count=24 -benchmem > $(STRESS_PATH) ./...

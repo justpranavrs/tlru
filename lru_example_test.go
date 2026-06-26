@@ -6,8 +6,11 @@ package tlru_test
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
 	"github.com/justpranavrs/tlru"
+	"github.com/justpranavrs/tlru/lrucore"
 )
 
 // Member is the type of the value stored in the cache.
@@ -16,9 +19,9 @@ type Member struct {
 	Email string
 }
 
-// ExampleCache shows a small example of how to initialize a LRU instance and
+// ExampleLRU shows a small example of how to initialize a LRU instance and
 // do basic operations like Put, Size, Peek and Capacity.
-func ExampleCache() {
+func ExampleLRU() {
 	cache, err := tlru.New[int, Member](256) // create a lru instance
 	if err != nil {
 		fmt.Printf("[ERROR] could not initialize LRU instance: %v", err)
@@ -32,13 +35,13 @@ func ExampleCache() {
 
 	fmt.Println(cache.Size()) // gets the current size of the cache
 
-	_, ok := cache.Peek(2)
+	_, ok := cache.Peek(2) // reports whether key 2 is present in the cache
 	fmt.Println(ok)
 
 	_, ok = cache.Peek(1)
 	fmt.Println(ok) // reports whether key 1 is present in the cache
 
-	fmt.Println(cache.Capacity())
+	fmt.Println(cache.Capacity()) // reports the maximum capacity of the cache.
 
 	cache.Flush()
 	fmt.Println(cache.Size())
@@ -67,10 +70,9 @@ func ExampleLRU_Capacity() {
 	// 256
 }
 
-// ExampleLRU_Delete shows an example of how Delete works and showcases
-// the a given key getting evicted from the cache.
+// ExampleLRU_Delete shows an example of how Delete works.
 func ExampleLRU_Delete() {
-	cache, err := tlru.New[int, Member](256)
+	cache, err := tlru.New[int, Member](256) // create a lru instance
 	if err != nil {
 		fmt.Printf("[ERROR] could not initialize LRU instance: %v", err)
 		return
@@ -85,26 +87,51 @@ func ExampleLRU_Delete() {
 		Email: "welcometotlru@gmail.com",
 	})
 
-	val, ok := cache.Delete(1)
+	val, ok := cache.Delete(1) // delete key 1 from the cache
 	if !ok {
 		fmt.Println("[DELETE] could not find the key in the cache.")
 	} else {
 		fmt.Printf("[DELETE] Name : %v | Email : %v\n", val.Name, val.Email)
 	}
-	val, ok = cache.Delete(3)
-	if !ok {
+	val, ok = cache.Delete(3) // delete key 3 from the cache
+	if !ok {                  // key is not present in the cache
 		fmt.Println("[DELETE] could not find the key in the cache.")
 	} else {
 		fmt.Printf("[DELETE] Name : %v | Email : %v\n", val.Name, val.Email)
 	}
 
-	val, ok = cache.Peek(1)
+	val, ok = cache.Peek(1) // check whether key 1 is in the cache.
 	fmt.Println(ok)
 
 	// Output:
 	// [DELETE] Name : justpranavrs | Email : iliketlru@gmail.com
 	// [DELETE] could not find the key in the cache.
 	// false
+}
+
+// ExampleLRU_Flush shows an example of how Flush works.
+func ExampleLRU_Flush() {
+	cache, err := tlru.New[int, Member](2560, tlru.WithShards(64)) // create a lru instance
+	if err != nil {
+		fmt.Printf("[ERROR] could not initialize LRU instance: %v", err)
+		return
+	}
+
+	for i := 0; i < 36; i++ {
+		name := "user_" + strconv.Itoa(i)
+		cache.Put(i, Member{
+			Name:  name,
+			Email: name + "@gmail.com",
+		})
+	}
+	fmt.Println(cache.Size())
+
+	cache.Flush() // empties the cache.
+	fmt.Println(cache.Size())
+
+	// Output:
+	// 36
+	// 0
 }
 
 // ExampleLRU_Get shows an example of how Get works and
@@ -181,8 +208,7 @@ func ExampleLRU_Peek() {
 	// false
 }
 
-// ExampleLRU_Put shows an example of how Put works and showcases
-// the least recently used key getting evicted in a LRU cache.
+// ExampleLRU_Put shows an example of how Put works.
 func ExampleLRU_Put() {
 	cache, err := tlru.New[int, Member](256)
 	if err != nil {
@@ -227,6 +253,19 @@ func ExampleLRU_Put() {
 	// true
 }
 
+// ExampleLRU_Shards shows an example of how Shards works.
+func ExampleLRU_Shards() {
+	cache, err := tlru.New[int, Member](256, tlru.WithShards(64)) // create a lru instance
+	if err != nil {
+		fmt.Printf("[ERROR] could not initialize LRU instance: %v", err)
+		return
+	}
+	fmt.Println(cache.Shards())
+
+	// Output:
+	// 64
+}
+
 // ExampleLRU_Size shows an example on how Size works. It returns the current size
 // of the LRU cache.
 func ExampleLRU_Size() {
@@ -245,5 +284,95 @@ func ExampleLRU_Size() {
 
 	// Output:
 	// 0
+	// 1
+}
+
+// ExampleLRU_Upsert shows an example of how Upsert works.
+func ExampleLRU_Upsert() {
+	cache, err := tlru.New[int, Member](2, tlru.WithShards(1))
+	if err != nil {
+		fmt.Printf("[ERROR] could not initialize LRU instance: %v", err)
+		return
+	}
+
+	state, _ := cache.Upsert(1, Member{
+		Name:  "justpranavrs",
+		Email: "iliketlru@gmail.com",
+	})
+	if state == lrucore.AddNoEvict {
+		fmt.Println("[UPSERT] : Add without Eviction")
+	}
+
+	_, ok := cache.Peek(2)
+	fmt.Println(ok)
+
+	_, ok = cache.Peek(1)
+	fmt.Println(ok)
+
+	state, _ = cache.Upsert(2, Member{
+		Name:  "welcometotlru",
+		Email: "welcometotlru@gmail.com",
+	})
+	if state == lrucore.AddNoEvict {
+		fmt.Println("[UPSERT] : Add without Eviction")
+	}
+
+	_, ok = cache.Peek(2)
+	fmt.Println(ok)
+
+	state, val := cache.Upsert(3, Member{
+		Name:  "justpranavrs",
+		Email: "tlruiscool@gmail.com",
+	})
+	if state == lrucore.AddOnEvict {
+		fmt.Println("[UPSERT] : Add on Eviction")
+		fmt.Printf("[UPSERT] Name : %v | Email : %v\n", val.Name, val.Email)
+	}
+
+	_, ok = cache.Peek(1)
+	fmt.Println(ok)
+
+	_, ok = cache.Peek(3)
+	fmt.Println(ok)
+
+	state, val = cache.Upsert(3, Member{
+		Name:  "justpranavrs",
+		Email: "jprs-tlru@gmail.com",
+	})
+	if state == lrucore.Replace {
+		fmt.Println("[UPSERT] : Value Replaced")
+		fmt.Printf("[UPSERT] Name : %v | Email : %v\n", val.Name, val.Email)
+	}
+
+	// Output:
+	// [UPSERT] : Add without Eviction
+	// false
+	// true
+	// [UPSERT] : Add without Eviction
+	// true
+	// [UPSERT] : Add on Eviction
+	// [UPSERT] Name : justpranavrs | Email : iliketlru@gmail.com
+	// false
+	// true
+	// [UPSERT] : Value Replaced
+	// [UPSERT] Name : justpranavrs | Email : tlruiscool@gmail.com
+}
+
+// ExampleTLRU_Close shows an example of how Close works.
+func ExampleTLRU_Close() {
+	cache, err := tlru.NewTTL[int, Member](256, 24*time.Hour) // create a lru instance
+	if err != nil {
+		fmt.Printf("[ERROR] could not initialize LRU instance: %v", err)
+		return
+	}
+	defer cache.Close() // Close safely shuts down the internal clock.
+
+	cache.Put(1, Member{
+		Name:  "justpranavrs",
+		Email: "iliketlru@gmail.com",
+	})
+	fmt.Println(cache.Size())
+
+	// Output:
 	// 1
 }

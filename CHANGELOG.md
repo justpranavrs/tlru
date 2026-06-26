@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.6.0]
+Link : [Github Release](https://github.com/justpranavrs/tlru/releases/tag/v0.6.0)
+
+### Added
+- `tlru.TLRU`, is the TTL instance of `tlru.LRU`. It can be created with `NewTTL`.
+- `lrucore.TTLCore`, is the TTL instance of `lrucore.Core`. It can be created with `NewTTL`. 
+- `WithSliding` option enables `Sliding TTL` and is available for both `tlru.TLRU` and `lrucore.TTLCore`.
+- `GetWithTTL`, `PeekWithTTL`, `PutWithTTL`, `Refresh`, `SetTTL`, `TTL` and `UpsertWithTTL` have been added to `tlru.TLRU` and `lrucore.TTLCore`.
+- `tlru.WithClock` allows the customization of clock for `tlru.TLRU` and `lrucore.WithClock` allows the customization of clock for `lrucore.TTLCore`.
+- `lrucore.Shard` interface representing `lrucore.Core` and `lrucore.TTLCore`.
+- More Examples for `GoDoc`. 
+- `Contains` is brought back after its removal in `v0.4.0` for `DX`.
+
+### Changed
+- `lrucore.Core` no longer supports TTL.
+- `Option` has been renamed to `LRUOption` and `CoreOption` has been renamed to `TTLOption`.
+- `tlru.WithClock` cannot be used with `tlru.New` and `lrucore.WithClock` cannot be used with `lrucore.New`.
+
+### Removed
+- `lrucore.WithTTL` and `tlru.WithTTL` has been removed.
+
 ## [0.5.1]
 Link : [Github Release](https://github.com/justpranavrs/tlru/releases/tag/v0.5.1)
 
@@ -173,6 +194,7 @@ Link : [Github Release](https://github.com/justpranavrs/tlru/releases/tag/v0.1.0
 - `Examples` for GoDoc.
 
 ##
+- [0.6.0] : [View changes from 0.5.1 to 0.6.0](https://github.com/justpranavrs/tlru/compare/v0.5.1...v0.6.0) 
 - [0.5.1] : [View changes from 0.5.0 to 0.5.1](https://github.com/justpranavrs/tlru/compare/v0.5.0...v0.5.1) 
 - [0.5.0] : [View changes from 0.4.1 to 0.5.0](https://github.com/justpranavrs/tlru/compare/v0.4.1...v0.5.0)
 - [0.4.1] : [View changes from 0.4.0 to 0.4.1](https://github.com/justpranavrs/tlru/compare/v0.4.0...v0.4.1)

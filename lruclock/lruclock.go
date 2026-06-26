@@ -16,7 +16,7 @@ type Clock struct {
 	// Epoch is the Unix timestamp when the clock instance was initialized.
 	epoch int64
 
-	// tick measures the current time in terms of (100 ms).
+	// tick measures the current time in terms of (duration).
 	tick atomic.Int64
 
 	// duration represents the ticker duration
@@ -36,6 +36,7 @@ type Clock struct {
 }
 
 var (
+	// ErrClockRunning is returned by [Clock.Start] when it is called more than once.
 	ErrClockRunning = errors.New("lruclock: clock is already running")
 )
 
@@ -64,6 +65,11 @@ func (c *Clock) Duration() time.Duration {
 // Epoch returns the Unix timestamp when the clock instance was initialized.
 func (c *Clock) Epoch() int64 {
 	return c.epoch
+}
+
+// Now returns the current tick count.
+func (c *Clock) Now() int64 {
+	return c.tick.Load()
 }
 
 // Since returns the ticks elapsed since t.
@@ -101,7 +107,12 @@ func (c *Clock) Stop() {
 	})
 }
 
-// Now returns the current tick count.
-func (c *Clock) Now() int64 {
-	return c.tick.Load()
+// Ticks returns the number of ticks expressible in the clock's duration.
+func (c *Clock) Ticks(t time.Duration) int64 {
+	return int64((t - c.duration + 1) / c.duration)
+}
+
+// Until returns the ticks until t.
+func (c *Clock) Until(t int64) int64 {
+	return t - c.tick.Load()
 }

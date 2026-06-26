@@ -10,6 +10,7 @@ Hello, This document is designed to help you get started with `tlru` and how to 
   - [Using the `tlru/mux` package](#using-the-tlrumux-package)
   - [Using a customized mux algorithm](#using-a-customized-mux-algorithm)
 - [Enabling TTL(Time-To-Live)](#enabling-ttltime-to-live)
+  - [Using Sliding TTL](#using-sliding-ttl)
   - [Using a Custom Clock](#using-a-custom-clock)
 
 ### Getting Started
@@ -90,14 +91,27 @@ cache, err := tlru.New[int, string](25600, tlru.WithMux(CustomMux[int]))
 ```
 
 ### Enabling TTL(Time-To-Live)
-The `WithTTL` option enables TTL and is available for both `lrucore.Core` or `tlru.LRU`. It uses `Absolute TTL`, which does not update the timestamp for the `key` during a `Get` operation.
+The `tlru.TLRU` and `lrucore.TTLCore` instances are the TTL implementations of `tlru.LRU` and `lrucore.TTLCore` respectively. It uses `Absolute TTL`, which does not update the timestamp for the `key` during a `Get` operation.
 
 The below examples demonstrates how to create a cache with a `TTL` of `5 hours`.
 ```go
-cache, err := tlru.New[int, string](25600, tlru.WithTTL(5 * time.Hour))
+cache, err := tlru.NewTTL[int, string](25600, 5 * time.Hour)
 ```
 
 When a cache is created, a background clock, which is a goroutine is spawned. To safely close the goroutine, calling `cache.Close()` is the best and recommended practice.
+
+For a single instance `lrucore.Core` with TTL, `lrucore.TTLCore` is available, and it can be created using `lrucore.NewTTL`.
+```go
+cache, err := lrucore.NewTTL[int, string](25600, 5 * time.Hour)
+```
+
+#### Using Sliding TTL
+The `WithSliding` option enables `Sliding TTL` which updates the timestamps of the keys during `Get` and `Peek` operations too.
+
+The below examples demonstrates how to create a cache with `Sliding TTL`.
+```go
+cache, err := tlru.NewTTL[int, string](25600, 5 * time.Hour, WithSliding())
+```
 
 #### Using a Custom Clock
 LRU Cache with TTL uses a background clock instead of the CPU's clock to reduce the lock contention due to `sync/Mutex` by using heavy operations inside a lock.
@@ -105,7 +119,7 @@ LRU Cache with TTL uses a background clock instead of the CPU's clock to reduce 
 The default clock duration is 100ms. To customize it, the `tlru/lruclock` package is used.
 ```go
 clock := lruclock.New(200 * time.Millisecond)
-cache, err := tlru.New[int, int](25600, tlru.WithTTL(5 * time.Hour), tlru.WithClock(clock))
+cache, err := tlru.NewTTL[int, int](25600, 5 * time.Hour, tlru.WithClock(clock))
 ```
 Above example uses a clock with 200ms.
 
