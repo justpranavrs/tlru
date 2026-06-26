@@ -21,7 +21,7 @@ type Member struct {
 
 // ExampleLRU shows a small example of how to initialize a LRU instance and
 // do basic operations like Put, Size, Peek and Capacity.
-func ExampleLRU() {
+func ExamplePoolLRU() {
 	cache, err := tlru.New[int, Member](256) // create a lru instance
 	if err != nil {
 		fmt.Printf("[ERROR] could not initialize LRU instance: %v", err)
@@ -56,8 +56,8 @@ func ExampleLRU() {
 	// 256
 }
 
-// ExampleLRU_Capacity shows an example of how Capacity works.
-func ExampleLRU_Capacity() {
+// ExamplePoolLRU_Capacity shows an example of how Capacity works.
+func ExamplePoolLRU_Capacity() {
 	cache, err := tlru.New[int, Member](256) // create a lru instance
 	if err != nil {
 		fmt.Printf("[ERROR] could not initialize LRU instance: %v", err)
@@ -70,8 +70,8 @@ func ExampleLRU_Capacity() {
 	// 256
 }
 
-// ExampleLRU_Delete shows an example of how Delete works.
-func ExampleLRU_Delete() {
+// ExamplePoolLRU_Delete shows an example of how Delete works.
+func ExamplePoolLRU_Delete() {
 	cache, err := tlru.New[int, Member](256) // create a lru instance
 	if err != nil {
 		fmt.Printf("[ERROR] could not initialize LRU instance: %v", err)
@@ -109,8 +109,8 @@ func ExampleLRU_Delete() {
 	// false
 }
 
-// ExampleLRU_Flush shows an example of how Flush works.
-func ExampleLRU_Flush() {
+// ExamplePoolLRU_Flush shows an example of how Flush works.
+func ExamplePoolLRU_Flush() {
 	cache, err := tlru.New[int, Member](2560, tlru.WithShards(64)) // create a lru instance
 	if err != nil {
 		fmt.Printf("[ERROR] could not initialize LRU instance: %v", err)
@@ -134,9 +134,9 @@ func ExampleLRU_Flush() {
 	// 0
 }
 
-// ExampleLRU_Get shows an example of how Get works and
+// ExamplePoolLRU_Get shows an example of how Get works and
 // how to handle when the key is not found in the cache.
-func ExampleLRU_Get() {
+func ExamplePoolLRU_Get() {
 	cache, err := tlru.New[int, Member](256)
 	if err != nil {
 		fmt.Printf("[ERROR] could not initialize LRU instance: %v", err)
@@ -165,9 +165,9 @@ func ExampleLRU_Get() {
 	// [GET] could not find the key in the cache.
 }
 
-// ExampleLRU_Peek shows an example of how Peek works.
+// ExamplePoolLRU_Peek shows an example of how Peek works.
 // It doesn't disturb the internal state of the cache.
-func ExampleLRU_Peek() {
+func ExamplePoolLRU_Peek() {
 	cache, err := tlru.New[int, Member](2, tlru.WithShards(1))
 	if err != nil {
 		fmt.Printf("[ERROR] could not initialize Core instance: %v", err)
@@ -208,8 +208,8 @@ func ExampleLRU_Peek() {
 	// false
 }
 
-// ExampleLRU_Put shows an example of how Put works.
-func ExampleLRU_Put() {
+// ExamplePoolLRU_Put shows an example of how Put works.
+func ExamplePoolLRU_Put() {
 	cache, err := tlru.New[int, Member](256)
 	if err != nil {
 		fmt.Printf("[ERROR] could not initialize LRU instance: %v", err)
@@ -253,8 +253,8 @@ func ExampleLRU_Put() {
 	// true
 }
 
-// ExampleLRU_Shards shows an example of how Shards works.
-func ExampleLRU_Shards() {
+// ExamplePoolLRU_Shards shows an example of how Shards works.
+func ExamplePoolLRU_Shards() {
 	cache, err := tlru.New[int, Member](256, tlru.WithShards(64)) // create a lru instance
 	if err != nil {
 		fmt.Printf("[ERROR] could not initialize LRU instance: %v", err)
@@ -266,9 +266,9 @@ func ExampleLRU_Shards() {
 	// 64
 }
 
-// ExampleLRU_Size shows an example on how Size works. It returns the current size
+// ExamplePoolLRU_Size shows an example on how Size works. It returns the current size
 // of the LRU cache.
-func ExampleLRU_Size() {
+func ExamplePoolLRU_Size() {
 	cache, err := tlru.New[int, Member](256)
 	if err != nil {
 		fmt.Printf("[ERROR] could not initialize LRU instance: %v", err)
@@ -287,8 +287,8 @@ func ExampleLRU_Size() {
 	// 1
 }
 
-// ExampleLRU_Upsert shows an example of how Upsert works.
-func ExampleLRU_Upsert() {
+// ExamplePoolLRU_Upsert shows an example of how Upsert works.
+func ExamplePoolLRU_Upsert() {
 	cache, err := tlru.New[int, Member](2, tlru.WithShards(1))
 	if err != nil {
 		fmt.Printf("[ERROR] could not initialize LRU instance: %v", err)
@@ -358,9 +358,9 @@ func ExampleLRU_Upsert() {
 	// [UPSERT] Name : justpranavrs | Email : tlruiscool@gmail.com
 }
 
-// ExampleTLRU_Close shows an example of how Close works.
-func ExampleTLRU_Close() {
-	cache, err := tlru.NewTTL[int, Member](256, 24*time.Hour) // create a lru instance
+// ExamplePoolTLRU_Close shows an example of how Close works.
+func ExamplePoolTLRU_Close() {
+	cache, err := tlru.NewWithTTL[int, Member](256, 24*time.Hour) // create a lru instance
 	if err != nil {
 		fmt.Printf("[ERROR] could not initialize LRU instance: %v", err)
 		return

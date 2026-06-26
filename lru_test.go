@@ -99,7 +99,7 @@ func FuzzLRU(f *testing.F) {
 }
 
 // BenchmarkLRUWith64 runs a benchmark test for the sharded LRU instance
-// with 64 sharded [lrucore.Core] instances.
+// with 64 sharded [lrucore.LRU] instances.
 func BenchmarkLRUWith64(b *testing.B) {
 	cache, err := tlru.New[int, testutil.User](512, tlru.WithShards(64))
 	if err != nil {
@@ -132,7 +132,7 @@ func BenchmarkLRU(b *testing.B) {
 }
 
 // BenchmarkLRUWith256 runs a benchmark test for the sharded LRU instance
-// with 256 sharded [lrucore.Core] instances.
+// with 256 sharded [lrucore.LRU] instances.
 func BenchmarkLRUWith256(b *testing.B) {
 	cache, err := tlru.New[int, testutil.User](512, tlru.WithShards(256))
 	if err != nil {

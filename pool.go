@@ -12,15 +12,18 @@ import (
 	"github.com/justpranavrs/tlru/mux"
 )
 
-// Cluster defines the general implementation of a 'Least Recently Used' cache
+// Pool defines the general implementation of a 'Least Recently Used' cache
 // with a collection of [lrucore.Shard].
 // It has thread-safe operations.
 //
 // K represents the type of the key, whereas V represents the type of the Value
 // in the cache
-type Cluster[K comparable, V any] interface {
+type Pool[K comparable, V any] interface {
 	// Capacity returns the maximum allocated capacity of the LRU cache.
 	Capacity() int
+
+	// Contains checks whether the key is present in the LRU cache.
+	Contains(key K) bool
 
 	// Delete removes the key from the cache and returns the evicted value.
 	// It returns false if the key was not found in the cache.
@@ -51,16 +54,16 @@ type Cluster[K comparable, V any] interface {
 	Size() int
 
 	// Stats return the current stats of the LRU cache.
-	Stats() lrucore.CoreStats
+	Stats() lrucore.Stats
 
 	// Upsert adds a new value to the cache with the given key.
 	// It returns a value based on how the internal state of the cache changed.
 	Upsert(key K, value V) (lrucore.UpsertState, V)
 }
 
-// cluster is the internal sharding container used by [LRU] and [TLRU].
+// pool is the internal sharding container used by [LRU] and [TLRU].
 // It handles routing via [mux.Mux] and maintains the shards.
-type cluster[K comparable, V any, C lrucore.Shard[K, V]] struct {
+type pool[K comparable, V any, C lrucore.Shard[K, V]] struct {
 	// capacity represents the maximum allocated space for the LRU cache.
 	capacity int
 
@@ -84,8 +87,8 @@ var (
 )
 
 // assemble creates a [cache] instance with the provided arguments. It creates shards based on the createShard function.
-func assemble[K comparable, V any, C lrucore.Shard[K, V]](capacity int, nShards int, hash mux.Mux[K], createShard func(cap int) (C, error)) (cluster[K, V, C], error) {
-	var zero cluster[K, V, C]
+func assemble[K comparable, V any, C lrucore.Shard[K, V]](capacity int, nShards int, hash mux.Mux[K], createShard func(cap int) (C, error)) (pool[K, V, C], error) {
+	var zero pool[K, V, C]
 	if capacity < int(nShards*2) || (capacity > math.MaxInt32) {
 		return zero, ErrInvalidCapacity
 	}
@@ -93,7 +96,7 @@ func assemble[K comparable, V any, C lrucore.Shard[K, V]](capacity int, nShards 
 	var err error
 	shards := make([]C, nShards)
 
-	cap := capacity / nShards // create lrucore instances
+	cap := capacity / nShards // create base instances
 	rem := capacity % nShards
 	for i := range nShards {
 		sCap := cap
@@ -109,7 +112,7 @@ func assemble[K comparable, V any, C lrucore.Shard[K, V]](capacity int, nShards 
 			return zero, err
 		}
 	}
-	return cluster[K, V, C]{
+	return pool[K, V, C]{
 		capacity: capacity,
 		shards:   shards,
 		mux:      hash,
@@ -117,20 +120,20 @@ func assemble[K comparable, V any, C lrucore.Shard[K, V]](capacity int, nShards 
 }
 
 // Capacity returns the maximum allocated capacity of the LRU cache
-// across all sharded instances of [lrucore.Core].
-func (l *cluster[K, V, C]) Capacity() int {
+// across all sharded instances of [lrucore.Shard].
+func (l *pool[K, V, C]) Capacity() int {
 	return l.capacity
 }
 
 // Contains checks whether the key is present in the LRU cache.
-func (l *cluster[K, V, C]) Contains(key K) bool {
+func (l *pool[K, V, C]) Contains(key K) bool {
 	shard := l.mux(key)
 	return l.shards[shard].Contains(key)
 }
 
 // Delete removes the key from the cache and returns the evicted value.
 // It returns false if the key was not found in the cache.
-func (l *cluster[K, V, C]) Delete(key K) (V, bool) {
+func (l *pool[K, V, C]) Delete(key K) (V, bool) {
 	shard := l.mux(key)
 	value, ok := l.shards[shard].Delete(key)
 	if !ok {
@@ -141,7 +144,7 @@ func (l *cluster[K, V, C]) Delete(key K) (V, bool) {
 
 // Flush clears the LRU cache of all its keys and values across
 // all sharded instances.
-func (l *cluster[K, V, C]) Flush() {
+func (l *pool[K, V, C]) Flush() {
 	for _, c := range l.shards {
 		c.Flush()
 	}
@@ -150,7 +153,7 @@ func (l *cluster[K, V, C]) Flush() {
 // Get retrieves the cache value using key.
 // It returns false if the key is not found.
 // It updates the key as 'recent' only in its respective shard.
-func (l *cluster[K, V, C]) Get(key K) (V, bool) {
+func (l *pool[K, V, C]) Get(key K) (V, bool) {
 	shard := l.mux(key)
 	value, ok := l.shards[shard].Get(key)
 	if !ok {
@@ -162,7 +165,7 @@ func (l *cluster[K, V, C]) Get(key K) (V, bool) {
 // Peek retrieves the cache value without updating it
 // to be the most recently used.
 // It returns false if the key is not found.
-func (l *cluster[K, V, C]) Peek(key K) (V, bool) {
+func (l *pool[K, V, C]) Peek(key K) (V, bool) {
 	shard := l.mux(key)
 	value, ok := l.shards[shard].Peek(key)
 	if !ok {
@@ -174,25 +177,25 @@ func (l *cluster[K, V, C]) Peek(key K) (V, bool) {
 // Put adds a new value to the cache with the given key.
 // It updates the key as 'recent' only in its respective shard.
 // It evicts the key only from the respective shard the key is linked to.
-func (l *cluster[K, V, C]) Put(key K, value V) {
+func (l *pool[K, V, C]) Put(key K, value V) {
 	l.Upsert(key, value)
 }
 
 // ResetStats resets the stats of the sharded LRU cache.
-func (l *cluster[K, V, C]) ResetStats() {
+func (l *pool[K, V, C]) ResetStats() {
 	for i := range l.shards {
 		l.shards[i].ResetStats()
 	}
 }
 
 // Shards returns the number of sharded instances in the LRU cache.
-func (l *cluster[K, V, C]) Shards() int {
+func (l *pool[K, V, C]) Shards() int {
 	return len(l.shards)
 }
 
 // Size returns the current size of the LRU cache
 // across all sharded instances.
-func (l *cluster[K, V, C]) Size() int {
+func (l *pool[K, V, C]) Size() int {
 	size := 0
 	for i := range l.shards {
 		size += l.shards[i].Size()
@@ -201,8 +204,8 @@ func (l *cluster[K, V, C]) Size() int {
 }
 
 // Stats return the current stats of the sharded LRU cache.
-func (l *cluster[K, V, C]) Stats() lrucore.CoreStats {
-	stats := lrucore.CoreStats{}
+func (l *pool[K, V, C]) Stats() lrucore.Stats {
+	stats := lrucore.Stats{}
 	for i := range l.shards {
 		st := l.shards[i].Stats()
 		stats.Hits += st.Hits
@@ -222,7 +225,7 @@ func (l *cluster[K, V, C]) Stats() lrucore.CoreStats {
 //   - [lrucore.AddNoEvict] returns the zero value of V.
 //   - [lrucore.AddOnEvict] returns the evicted value.
 //   - [lrucore.Replace] returns the old value the key had.
-func (l *cluster[K, V, C]) Upsert(key K, value V) (lrucore.UpsertState, V) {
+func (l *pool[K, V, C]) Upsert(key K, value V) (lrucore.UpsertState, V) {
 	shard := l.mux(key)
 	return l.shards[shard].Upsert(key, value)
 }

@@ -14,8 +14,8 @@
 ## Table of Contents
 
 - [Introduction](#introduction)
-  - [How does lrucore.Core work?](#how-does-lrucorecore-work)
-  - [What is tlru.LRU?](#what-is-tlrulru)
+  - [How does lrucore.LRU work?](#how-does-lrucorecore-work)
+  - [What is tlru.PoolLRU?](#what-is-tlrulru)
   - [What is a mux.Mux?](#what-is-a-muxmux)
 - [Installation](#installation)
 - [Examples](#examples)
@@ -26,20 +26,20 @@
 
 ## Introduction
 
-### How does `lrucore.Core` work?
+### How does `lrucore.LRU` work?
 
-- The `lrucore.Core` uses an array-based doubly linked list with int32 indices. This guarantees zero runtime allocations.
+- The `lrucore.LRU` uses an array-based doubly linked list with int32 indices. This guarantees zero runtime allocations.
 - Each of these instances have a mutex lock to ensure safety in concurrent operations.
-- `lrucore.Core` has Go's support for generics.
-- It has optimized batch operations like `GetMany` and `PutMany` which reduce the locking contention during high workloads. This is only limited to `lrucore.Core`.
+- `lrucore.LRU` has Go's support for generics.
+- It has optimized batch operations like `GetMany` and `PutMany` which reduce the locking contention during high workloads. This is only limited to `lrucore.LRU`.
 
-### What is `tlru.LRU`?
+### What is `tlru.PoolLRU`?
 
-- While `lrucore.Core` is incredibly powerful, struggles under heavy concurrent workloads. That is where `tlru.LRU` shines. It uses a sharded architecture, consisting of many `lrucore.Core` instances. Since each Instance is protected by a mutex lock, `tlru.LRU` doesn't need its own mutex lock.
-- It doesn't undergo a global based eviction. It uses a `shard-based local eviction` for its keys. The more the shards, the lesser the chance to evict the global least recently used key. To use the global based approach, use `lrucore.Core`.
+- While `lrucore.LRU` is incredibly powerful, struggles under heavy concurrent workloads. That is where `tlru.PoolLRU` shines. It uses a sharded architecture, consisting of many `lrucore.LRU` instances. Since each Instance is protected by a mutex lock, `tlru.PoolLRU` doesn't need its own mutex lock.
+- It doesn't undergo a global based eviction. It uses a `shard-based local eviction` for its keys. The more the shards, the lesser the chance to evict the global least recently used key. To use the global based approach, use `lrucore.LRU`.
 - It uses a `mux.Mux` to route the key to one of its shards.
 - It has two options:
-  - `WithShards`: It allows the user to customize the number of shards `tlru.LRU` creates.
+  - `WithShards`: It allows the user to customize the number of shards `tlru.PoolLRU` creates.
   - `WithMux`: It allows the configuration of `mux.Mux`.
 
 ### What is a `mux.Mux`?
@@ -48,7 +48,7 @@
 - `WithMux` option allows the configuration by passing a custom hash function of type `mux.Mux` to the `LRU`.
 
 ### How does `TTL` work?
-- `tlru.TLRU` and `lrucore.TTLCore` are TTL implementations of `tlru.LRU` and `lrucore.Core` respectively. They use `Absolute TTL`. The timestamp of a `key` in the cache is updated only on `Put` operations and never on `Get` operations.
+- `tlru.PoolTLRU` and `lrucore.TLRU` are TTL implementations of `tlru.PoolLRU` and `lrucore.LRU` respectively. They use `Absolute TTL`. The timestamp of a `key` in the cache is updated only on `Put` operations and never on `Get` operations.
 - `WithSliding` on these instances enable `Sliding TTL` instead of the default `Absolute TTL`. `Sliding TTL` ensures timestamp updates on `Get` and `Peek` operations too.
 
 For a detailed walkthrough, refer [here](./LRU.md)
@@ -76,7 +76,7 @@ import (
 func main() {
 	// create a new TLRU cache instance.
   // default number of containers is 128.
-	cache, err := tlru.NewTTL[int, int](51200, 24 * time.Hour)
+	cache, err := tlru.NewWithTTL[int, int](51200, 24 * time.Hour)
 	if err != nil {
 		fmt.Printf("tlru cache initialization error: %v", err)
 	}
@@ -103,19 +103,19 @@ import (
 )
 
 func main() {
-	// create a new LRU cache instance.
-    // default number of containers is 128.
-	cache, err := tlru.New[int, int](1000000)
-	if err != nil {
-		fmt.Printf("lru cache initialization error: %v", err)
-	}
-	cache.Put(1, 18)
+  // create a new LRU cache instance.
+  // default number of containers is 128.
+  cache, err := tlru.New[int, int](1000000)
+  if err != nil {
+    fmt.Printf("lru cache initialization error: %v", err)
+  }
+  cache.Put(1, 18)
 
-	val, ok := cache.Get(1)
-	if !ok {
-		fmt.Println("key not present in cache")
-	}
-	fmt.Println(val) // 18
+  val, ok := cache.Get(1)
+  if !ok {
+    fmt.Println("key not present in cache")
+  }
+  fmt.Println(val) // 18
 }
 ```
 
@@ -138,7 +138,7 @@ cache, err := tlru.New[int, string](25600, tlru.WithShards(64))
 
 ### Performance
 
-* `tlru.LRU` with `64` shards:
+* `tlru.PoolLRU` with `64` shards:
 ```text
 [ Zipf Data ]
   Puts-16                             34108743       35.38 ns/op       0 B/op       0 allocs/op
@@ -155,7 +155,7 @@ cache, err := tlru.New[int, string](25600, tlru.WithShards(64))
   Mixed_Parallel-16                   72448735       16.64 ns/op       0 B/op       0 allocs/op
 ```
 
-* `tlru.LRU` with `128` shards (Default):
+* `tlru.PoolLRU` with `128` shards (Default):
 ```text
 [ Zipf Data ]
   Puts-16                             33837464       36.00 ns/op       0 B/op       0 allocs/op
@@ -172,7 +172,7 @@ cache, err := tlru.New[int, string](25600, tlru.WithShards(64))
   Mixed_Parallel-16                   88540772       13.73 ns/op       0 B/op       0 allocs/op
 ```
 
-* `tlru.LRU` with `256` shards:
+* `tlru.PoolLRU` with `256` shards:
 ```text
 [ Zipf Data ]
   Puts-16                             32998448       35.51 ns/op       0 B/op       0 allocs/op
@@ -189,7 +189,7 @@ cache, err := tlru.New[int, string](25600, tlru.WithShards(64))
   Mixed_Parallel-16                  100000000       11.98 ns/op       0 B/op       0 allocs/op
 ```
 
-* `lrucore.Core` (Single-Threaded):
+* `lrucore.LRU` (Single-Threaded):
 ```text
 [ Zipf Data ]
   Puts-16                             28654330       39.76 ns/op       0 B/op       0 allocs/op

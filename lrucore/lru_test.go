@@ -11,8 +11,8 @@ import (
 	"github.com/justpranavrs/tlru/lrucore"
 )
 
-// TestLRUCore runs a basic and advanced unit tests for the core LRU instance.
-func TestLRUCore(t *testing.T) {
+// TestLRU runs a basic and advanced unit tests for the core LRU instance.
+func TestLRU(t *testing.T) {
 	var init testutil.TestInit = func(capacity int) testutil.CacheTest[int, testutil.User] {
 		cache, err := lrucore.New[int, testutil.User](capacity)
 		if err != nil {
@@ -24,8 +24,8 @@ func TestLRUCore(t *testing.T) {
 	testutil.TestCache(t, testutil.AdvancedLRUData, init)
 }
 
-// TestRaceLRUCore_Int runs a concurrency test for the sharded LRU instance with int keys.
-func TestRaceLRUCore_Int(t *testing.T) {
+// TestRaceLRU_Int runs a concurrency test for the sharded LRU instance with int keys.
+func TestRaceLRU_Int(t *testing.T) {
 	cache, err := lrucore.New[int, testutil.User](512)
 	if err != nil {
 		t.Fatalf("[ERROR] could not initialize Cache instance: %v", err)
@@ -40,8 +40,8 @@ func TestRaceLRUCore_Int(t *testing.T) {
 	})
 }
 
-// TestRaceLRUCore_Int runs a concurrency test for the sharded LRU instance with int32 keys.
-func TestRaceLRUCore_Int32(t *testing.T) {
+// TestRaceLRU_Int runs a concurrency test for the sharded LRU instance with int32 keys.
+func TestRaceLRU_Int32(t *testing.T) {
 	cacheInt32, err := lrucore.New[int32, testutil.User](512)
 	if err != nil {
 		t.Fatalf("[ERROR] could not initialize Cache instance: %v", err)
@@ -56,8 +56,8 @@ func TestRaceLRUCore_Int32(t *testing.T) {
 	})
 }
 
-// TestRaceLRUCore_Int runs a concurrency test for the sharded LRU instance with uint keys.
-func TestRaceLRUCore_Uint(t *testing.T) {
+// TestRaceLRU_Int runs a concurrency test for the sharded LRU instance with uint keys.
+func TestRaceLRU_Uint(t *testing.T) {
 	cacheUint, err := lrucore.New[uint, testutil.User](512)
 	if err != nil {
 		t.Fatalf("[ERROR] could not initialize Cache instance: %v", err)
@@ -72,8 +72,8 @@ func TestRaceLRUCore_Uint(t *testing.T) {
 	})
 }
 
-// TestRaceLRUCore_Int runs a concurrency test for the sharded LRU instance with string keys.
-func TestRaceLRUCore_String(t *testing.T) {
+// TestRaceLRU_Int runs a concurrency test for the sharded LRU instance with string keys.
+func TestRaceLRU_String(t *testing.T) {
 	cacheStr, err := lrucore.New[string, testutil.User](512)
 	if err != nil {
 		t.Fatalf("[ERROR] could not initialize Cache instance: %v", err)
@@ -88,8 +88,8 @@ func TestRaceLRUCore_String(t *testing.T) {
 	})
 }
 
-// FuzzLRUCore runs a fuzz test for the core LRU instance.
-func FuzzLRUCore(f *testing.F) {
+// FuzzLRU runs a fuzz test for the core LRU instance.
+func FuzzLRU(f *testing.F) {
 	cache, err := lrucore.New[int, testutil.User](512)
 	if err != nil {
 		f.Fatalf("[ERROR] could not initialize Cache instance: %v", err)
@@ -97,8 +97,8 @@ func FuzzLRUCore(f *testing.F) {
 	testutil.FuzzCache(f, cache, func(i int) uint32 { return 0 }, 8192, 512, 1)
 }
 
-// BenchmarkLRUCore runs a benchmark test for the core LRU instance.
-func BenchmarkLRUCore(b *testing.B) {
+// BenchmarkLRU runs a benchmark test for the core LRU instance.
+func BenchmarkLRU(b *testing.B) {
 	cache, err := lrucore.New[int, testutil.User](512)
 	if err != nil {
 		b.Fatalf("[ERROR] could not initialize Cache instance: %v", err)

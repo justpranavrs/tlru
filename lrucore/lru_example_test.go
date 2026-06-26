@@ -17,12 +17,12 @@ type Member struct {
 	Email string
 }
 
-// ExampleCore shows a small example of how to initialize a Core instance and
+// ExampleLRU shows a small example of how to initialize a LRU instance and
 // do basic operations like Put, Size, Peek and Capacity.
-func ExampleCore() {
+func ExampleLRU() {
 	cache, err := lrucore.New[int, Member](256) // create a lru instance
 	if err != nil {
-		fmt.Printf("[ERROR] could not initialize Core instance: %v", err)
+		fmt.Printf("[ERROR] could not initialize LRU instance: %v", err)
 		return
 	}
 
@@ -54,8 +54,8 @@ func ExampleCore() {
 	// 256
 }
 
-// ExampleCore_GetMany shows an example on how GetMany works.
-func ExampleCore_GetMany() {
+// ExampleLRU_GetMany shows an example on how GetMany works.
+func ExampleLRU_GetMany() {
 	cache, err := lrucore.New[int, Member](256) // create a lru instance
 	if err != nil {
 		fmt.Printf("[ERROR] could not initialize LRU instance: %v", err)
@@ -108,8 +108,8 @@ func ExampleCore_GetMany() {
 	// [GET-MANY] Key 38 is not present in the cache
 }
 
-// ExampleCore_PutMany shows an example on how PutMany works.
-func ExampleCore_PutMany() {
+// ExampleLRU_PutMany shows an example on how PutMany works.
+func ExampleLRU_PutMany() {
 	cache, err := lrucore.New[int, Member](256) // create a lru instance
 	if err != nil {
 		fmt.Printf("[ERROR] could not initialize LRU instance: %v", err)

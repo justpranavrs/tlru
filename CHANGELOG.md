@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+- `tlru/lrucore` has been completely rewritten to separate locked instance to lockless instance and a `syncBase` wrapper, which uses the lock. It has been done to support `SLRU` or `2Q` which would require lockless instance.
+- `lrucore.Core` has been renamed to `lrucore.LRU`
+- `lrucore.TTLCore` has been renamed to `lrucore.TLRU`
+- `Cluster` has been renamed to `Pool`
+- `tlru.LRU` has been renamed to `tlru.PoolLRU`
+- `tlru.TLRU` has been renamed to `tlru.PoolTLRU`.
+
 ## [v0.6.1] - 2026-06-26
 Link : [Github Release](https://github.com/justpranavrs/tlru/releases/tag/v0.6.1)
 
