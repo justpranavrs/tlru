@@ -49,6 +49,11 @@ func (f LRUOption) apply(c *tlruConfig) error {
 // the required [lrucore.TTLCore] instances, initiates the [mux.Mux] for shard routing.
 // It defaults to the Mux with hash/maphash algorithm. Check `tlru/mux` package for alternatives.
 //
+// The ttl value is rounded off in terms of its internal clock ticks. Check [lruclock.Clock.Ticks].
+//
+// It operates on a default clock with 100ms. To customize the
+// Clock, refer [WithClock].
+//
 // Returns [ErrInvalidShards] if shards is not in range [1, 1073741823].
 //
 // Returns [ErrInvalidCapacity] if capacity is not in the range of int32
@@ -151,6 +156,8 @@ func (l *TLRU[K, V]) PeekWithTTL(key K) (V, time.Duration, bool) {
 
 // PutWithTTL adds a new value to the cache with the given key and the provided ttl value.
 //
+// The ttl value is rounded off in terms of its internal clock ticks.
+//
 // Check [TLRU.Put] on how Put works.
 func (l *TLRU[K, V]) PutWithTTL(key K, value V, ttl time.Duration) {
 	shard := l.mux(key)
@@ -166,6 +173,8 @@ func (l *TLRU[K, V]) Refresh(key K) bool {
 
 // SetTTL resets the TTL of an existing key using the provided ttl value.
 // It returns false if the key could not be found.
+//
+// The ttl value is rounded off in terms of its internal clock ticks.
 func (l *TLRU[K, V]) SetTTL(key K, ttl time.Duration) bool {
 	shard := l.mux(key)
 	return l.cluster.shards[shard].SetTTL(key, ttl)
@@ -178,6 +187,8 @@ func (l *TLRU[K, V]) TTL(key K) (time.Duration, bool) {
 }
 
 // UpsertWithTTL adds a new value to the cache with the given key and the provided ttl value.
+//
+// The ttl value is rounded off in terms of its internal clock ticks.
 //
 // Check [TLRU.Upsert] on how Upsert works.
 func (l *TLRU[K, V]) UpsertWithTTL(key K, value V, ttl time.Duration) (lrucore.UpsertState, V) {

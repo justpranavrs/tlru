@@ -86,6 +86,12 @@ type TTLOption func(c *ttlConfig)
 // NewTTL creates an instance of [TTLCore] using the given capacity and sets
 // the default expiration timer based on the argument "ttl".
 //
+// The ttl value is rounded off in terms of its internal clock ticks.
+// Check [lruclock.Clock.Ticks].
+//
+// It operates on a default clock with 100ms. To customize the
+// Clock, refer [WithClock].
+//
 // Returns an [ErrInvalidCapacity] if the capacity is not in [2, 2147483645].
 func NewTTL[K comparable, V any](capacity int, ttl time.Duration, opts ...TTLOption) (*TTLCore[K, V], error) {
 	cache, err := New[K, ttlValue[V]](capacity)
@@ -103,19 +109,17 @@ func NewTTL[K comparable, V any](capacity int, ttl time.Duration, opts ...TTLOpt
 	}
 
 	var clock *lruclock.Clock
-	duration := 100 * time.Millisecond
 	if cfg.clock != nil {
 		clock = cfg.clock
-		duration = cfg.clock.Duration()
 	} else {
-		clock = lruclock.New(duration)
+		clock = lruclock.New(100 * time.Millisecond)
 		_ = clock.Start()
 	}
 
 	return &TTLCore[K, V]{
 		core:  cache,
 		clock: clock,
-		ttl:   int64(ttl / duration),
+		ttl:   clock.Ticks(ttl),
 	}, nil
 }
 
@@ -267,11 +271,13 @@ func (l *TTLCore[K, V]) PutMany(keys []K, values []V) error {
 }
 
 // PutWithTTL adds a new value to the cache with the provided ttl value.
+//
+// The ttl value is rounded off in terms of its internal clock ticks.
 func (l *TTLCore[K, V]) PutWithTTL(key K, value V, ttl time.Duration) {
 	l.core.mu.Lock()
 	defer l.core.mu.Unlock()
 
-	l.putKey(key, value, int64(ttl/l.clock.Duration()))
+	l.putKey(key, value, l.clock.Ticks(ttl))
 }
 
 // Refresh resets the TTL of an existing key using the default ttl.
@@ -290,11 +296,13 @@ func (l *TTLCore[K, V]) ResetStats() {
 
 // SetTTL resets the TTL of an existing key using the given ttl in the argument.
 // It returns false if the key could not be found.
+//
+// The ttl value is rounded off in terms of its internal clock ticks.
 func (l *TTLCore[K, V]) SetTTL(key K, ttl time.Duration) bool {
 	l.core.mu.Lock()
 	defer l.core.mu.Unlock()
 
-	return l.refreshKey(key, int64(ttl/l.clock.Duration()))
+	return l.refreshKey(key, l.clock.Ticks(ttl))
 }
 
 // Size returns the current size of the LRU cache.
@@ -333,13 +341,14 @@ func (l *TTLCore[K, V]) Upsert(key K, value V) (UpsertState, V) {
 }
 
 // UpsertWithTTL adds a new value to the cache with the given key and the provided ttl value.
+// The ttl value is rounded off in terms of its internal clock ticks.
 //
 // Check [TTLCore.Upsert] on how Upsert works.
 func (l *TTLCore[K, V]) UpsertWithTTL(key K, value V, ttl time.Duration) (UpsertState, V) {
 	l.core.mu.Lock()
 	defer l.core.mu.Unlock()
 
-	return l.putKey(key, value, int64(ttl/l.clock.Duration()))
+	return l.putKey(key, value, l.clock.Ticks(ttl))
 }
 
 // expireKey verifies if the timestamp has expired. If it has, it will evict the key.

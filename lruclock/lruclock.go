@@ -67,6 +67,11 @@ func (c *Clock) Epoch() int64 {
 	return c.epoch
 }
 
+// Now returns the current tick count.
+func (c *Clock) Now() int64 {
+	return c.tick.Load()
+}
+
 // Since returns the ticks elapsed since t.
 func (c *Clock) Since(t int64) int64 {
 	return c.tick.Load() - t
@@ -102,9 +107,9 @@ func (c *Clock) Stop() {
 	})
 }
 
-// Now returns the current tick count.
-func (c *Clock) Now() int64 {
-	return c.tick.Load()
+// Ticks returns the number of ticks expressible in the clock's duration.
+func (c *Clock) Ticks(t time.Duration) int64 {
+	return int64((t - c.duration + 1) / c.duration)
 }
 
 // Until returns the ticks until t.
