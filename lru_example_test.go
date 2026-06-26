@@ -7,6 +7,7 @@ package tlru_test
 import (
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/justpranavrs/tlru"
 	"github.com/justpranavrs/tlru/lrucore"
@@ -67,25 +68,6 @@ func ExampleLRU_Capacity() {
 
 	// Output:
 	// 256
-}
-
-// ExampleLRU_Close shows an example of how Close works.
-func ExampleLRU_Close() {
-	cache, err := tlru.New[int, Member](256) // create a lru instance
-	if err != nil {
-		fmt.Printf("[ERROR] could not initialize LRU instance: %v", err)
-		return
-	}
-	defer cache.Close() // Close safely shuts down the internal clock.
-
-	cache.Put(1, Member{
-		Name:  "justpranavrs",
-		Email: "iliketlru@gmail.com",
-	})
-	fmt.Println(cache.Size())
-
-	// Output:
-	// 1
 }
 
 // ExampleLRU_Delete shows an example of how Delete works.
@@ -374,4 +356,23 @@ func ExampleLRU_Upsert() {
 	// true
 	// [UPSERT] : Value Replaced
 	// [UPSERT] Name : justpranavrs | Email : tlruiscool@gmail.com
+}
+
+// ExampleTLRU_Close shows an example of how Close works.
+func ExampleTLRU_Close() {
+	cache, err := tlru.NewTTL[int, Member](256, 24*time.Hour) // create a lru instance
+	if err != nil {
+		fmt.Printf("[ERROR] could not initialize LRU instance: %v", err)
+		return
+	}
+	defer cache.Close() // Close safely shuts down the internal clock.
+
+	cache.Put(1, Member{
+		Name:  "justpranavrs",
+		Email: "iliketlru@gmail.com",
+	})
+	fmt.Println(cache.Size())
+
+	// Output:
+	// 1
 }

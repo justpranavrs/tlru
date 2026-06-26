@@ -16,7 +16,7 @@ import (
 // many instances of [lrucore.TTLCore] and works based on [LRU].
 // It manages a unified clock for all the separate instances.
 type TLRU[K comparable, V any] struct {
-	lru   LRU[K, V, *lrucore.TTLCore[K, V]]
+	cache coreCluster[K, V, *lrucore.TTLCore[K, V]]
 	clock *lruclock.Clock
 }
 
@@ -55,6 +55,10 @@ func (f LRUOption) apply(c *tlruConfig) error {
 func NewTTL[K comparable, V any](capacity int, expiresAt time.Duration, opts ...TLRUOption) (*TLRU[K, V], error) {
 	// build the config
 	cfg := tlruConfig{
+		lruConfig: lruConfig{
+			shards: DefaultShards,
+			mux:    nil,
+		},
 		clock: nil,
 	}
 	for _, opt := range opts { // options
@@ -83,7 +87,7 @@ func NewTTL[K comparable, V any](capacity int, expiresAt time.Duration, opts ...
 		_ = cfg.clock.Start()
 	}
 
-	lru, err := initLRU(capacity, cfg.shards, hash, func(cap int) (*lrucore.TTLCore[K, V], error) {
+	lru, err := buildCluster(capacity, cfg.shards, hash, func(cap int) (*lrucore.TTLCore[K, V], error) {
 		return lrucore.NewTTL[K, V](cap, expiresAt, lrucore.WithClock(cfg.clock))
 	})
 	if err != nil {
@@ -91,7 +95,7 @@ func NewTTL[K comparable, V any](capacity int, expiresAt time.Duration, opts ...
 	}
 
 	return &TLRU[K, V]{
-		lru:   *lru,
+		cache: lru,
 		clock: cfg.clock,
 	}, nil
 }
@@ -111,7 +115,7 @@ func WithClock(clock *lruclock.Clock) tlruOpt {
 // Capacity returns the maximum allocated capacity of the TLRU cache
 // across all sharded instances of [lrucore.TTLCore].
 func (l *TLRU[K, V]) Capacity() int {
-	return l.lru.capacity
+	return l.cache.capacity
 }
 
 // Close safely closes the background clock when TTL is enabled on the cache.
@@ -124,27 +128,27 @@ func (l *TLRU[K, V]) Close() {
 // Delete removes the key from the cache and returns the evicted value.
 // It returns false if the key was not found in the cache.
 func (l *TLRU[K, V]) Delete(key K) (V, bool) {
-	return l.lru.Delete(key)
+	return l.cache.Delete(key)
 }
 
 // Flush clears the TLRU cache of all its keys and values across
 // all sharded instances.
 func (l *TLRU[K, V]) Flush() {
-	l.lru.Flush()
+	l.cache.Flush()
 }
 
 // Get retrieves the cache value using key.
 // It returns false if the key is not found.
 // It updates the key as 'recent' only in its respective shard.
 func (l *TLRU[K, V]) Get(key K) (V, bool) {
-	return l.lru.Get(key)
+	return l.cache.Get(key)
 }
 
 // Peek retrieves the cache value without updating it
 // to be the most recently used.
 // It returns false if the key is not found.
 func (l *TLRU[K, V]) Peek(key K) (V, bool) {
-	return l.lru.Peek(key)
+	return l.cache.Peek(key)
 }
 
 // Put adds a new value to the cache with the given key.
@@ -156,23 +160,23 @@ func (l *TLRU[K, V]) Put(key K, value V) {
 
 // ResetStats resets the stats of the sharded TLRU cache.
 func (l *TLRU[K, V]) ResetStats() {
-	l.lru.ResetStats()
+	l.cache.ResetStats()
 }
 
 // Shards returns the number of sharded instances in the TLRU cache.
 func (l *TLRU[K, V]) Shards() int {
-	return l.lru.Shards()
+	return l.cache.Shards()
 }
 
 // Size returns the current size of the TLRU cache
 // across all sharded instances.
 func (l *TLRU[K, V]) Size() int {
-	return l.lru.Size()
+	return l.cache.Size()
 }
 
 // Stats return the current stats of the sharded TLRU cache.
 func (l *TLRU[K, V]) Stats() lrucore.CoreStats {
-	return l.lru.Stats()
+	return l.cache.Stats()
 }
 
 // Upsert adds a new value to the cache with the given key.
@@ -180,5 +184,5 @@ func (l *TLRU[K, V]) Stats() lrucore.CoreStats {
 // It evicts or updates locally on the shard, instead of global cache.
 // Returns a value [lrucore.UpsertState].
 func (l *TLRU[K, V]) Upsert(key K, value V) (lrucore.UpsertState, V) {
-	return l.lru.Upsert(key, value)
+	return l.cache.Upsert(key, value)
 }

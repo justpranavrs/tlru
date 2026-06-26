@@ -22,9 +22,6 @@ type Shard[K comparable, V any] interface {
 	// Capacity returns the maximum allocated capacity of the LRU cache.
 	Capacity() int
 
-	// Close safely closes the background clock when TTL is enabled on the cache.
-	Close()
-
 	// Delete removes the key from the cache and returns the evicted value.
 	// It returns false if the key was not found in the cache.
 	Delete(key K) (V, bool)
@@ -210,11 +207,6 @@ func New[K comparable, V any](capacity int) (*Core[K, V], error) {
 func (l *Core[K, V]) Capacity() int {
 	return l.capacity
 }
-
-// Close safely closes the background clock of the cache.
-//
-// NOTE: [Core] has no internal clock to safely shutdown. This does nothing.
-func (l *Core[K, V]) Close() {}
 
 // Delete removes the key from the cache and returns the evicted value.
 // It returns false if the key was not found in the cache.
