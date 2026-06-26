@@ -56,7 +56,7 @@ For a detailed walkthrough, refer [here](./LRU.md)
 ## Installation
 
 ```bash
-go get -u github.com/justpranavrs/tlru@v0.5.1
+go get -u github.com/justpranavrs/tlru@v0.6.0
 ```
 
 ## Examples

@@ -5,7 +5,9 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [v0.6.0]
+Link : [Github Release](https://github.com/justpranavrs/tlru/releases/tag/v0.6.0)
+
 ### Added
 - `tlru.TLRU`, is the TTL instance of `tlru.LRU`. It can be created with `NewTTL`.
 - `lrucore.TTLCore`, is the TTL instance of `lrucore.Core`. It can be created with `NewTTL`. 
@@ -192,6 +194,7 @@ Link : [Github Release](https://github.com/justpranavrs/tlru/releases/tag/v0.1.0
 - `Examples` for GoDoc.
 
 ##
+- [0.6.0] : [View changes from 0.5.1 to 0.6.0](https://github.com/justpranavrs/tlru/compare/v0.5.1...v0.6.0) 
 - [0.5.1] : [View changes from 0.5.0 to 0.5.1](https://github.com/justpranavrs/tlru/compare/v0.5.0...v0.5.1) 
 - [0.5.0] : [View changes from 0.4.1 to 0.5.0](https://github.com/justpranavrs/tlru/compare/v0.4.1...v0.5.0)
 - [0.4.1] : [View changes from 0.4.0 to 0.4.1](https://github.com/justpranavrs/tlru/compare/v0.4.0...v0.4.1)
