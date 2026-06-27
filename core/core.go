@@ -2,13 +2,13 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package lrucore
+package core
 
 import (
 	"errors"
 	"time"
 
-	"github.com/justpranavrs/tlru/lruclock"
+	"github.com/justpranavrs/tlru/clock"
 )
 
 // LRU is basic implementation of 'Least Recently Used' Cache.
@@ -21,7 +21,7 @@ type LRU[K comparable, V any] struct {
 }
 
 // TLRU is the implementation of 'LRU' with TTL (Time-To-Live). It
-// operates on an internal clock from [lruclock.Clock] and operates with an instance
+// operates on an internal clock from [clock.Clock] and operates with an instance
 // of [LRU].
 type TLRU[K comparable, V any] struct {
 	syncBase[K, V, *tlruBase[K, V]]
@@ -30,7 +30,7 @@ type TLRU[K comparable, V any] struct {
 // ttlConfig represents the configuration of [TLRU]. It should be used with [TTLOption].
 type ttlConfig struct {
 	// internal clock
-	clock *lruclock.Clock
+	clock *clock.Clock
 
 	// sliding TTL
 	sliding bool
@@ -66,7 +66,7 @@ func New[K comparable, V any](capacity int) (*LRU[K, V], error) {
 // the default expiration timer based on the argument "ttl".
 //
 // The ttl value is rounded off in terms of its internal clock ticks.
-// Check [lruclock.Clock.Ticks].
+// Check [clock.Clock.Ticks].
 //
 // It operates on a default clock with 100ms. To customize the
 // Clock, refer [WithClock].
@@ -85,15 +85,15 @@ func NewWithTTL[K comparable, V any](capacity int, ttl time.Duration, opts ...TT
 		opt(&cfg)
 	}
 
-	var clock *lruclock.Clock
+	var clk *clock.Clock
 	if cfg.clock != nil {
-		clock = cfg.clock
+		clk = cfg.clock
 	} else {
-		clock = lruclock.New(100 * time.Millisecond)
-		_ = clock.Start()
+		clk = clock.New(100 * time.Millisecond)
+		_ = clk.Start()
 	}
 
-	lru, err := assembleTLRU[K, V](capacity, ttl, clock, cfg.sliding)
+	lru, err := assembleTLRU[K, V](capacity, ttl, clk, cfg.sliding)
 	if err != nil {
 		return nil, err
 	}
@@ -106,9 +106,9 @@ func NewWithTTL[K comparable, V any](capacity int, ttl time.Duration, opts ...TT
 
 // WithClock allows the usage of a custom clock for [TLRU].
 //
-// NOTE: Using WithClock on [NewWithTTL] will not start the clock. Use [lruclock.Clock.Start] to
+// NOTE: Using WithClock on [NewWithTTL] will not start the clock. Use [clock.Clock.Start] to
 // initiate the timer.
-func WithClock(clock *lruclock.Clock) TTLOption {
+func WithClock(clock *clock.Clock) TTLOption {
 	return func(c *ttlConfig) {
 		c.clock = clock
 	}

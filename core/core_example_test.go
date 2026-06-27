@@ -2,13 +2,13 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package lrucore_test
+package core_test
 
 import (
 	"fmt"
 	"strconv"
 
-	"github.com/justpranavrs/tlru/lrucore"
+	core "github.com/justpranavrs/tlru/core"
 )
 
 // Member is the type of the value stored in the cache.
@@ -20,7 +20,7 @@ type Member struct {
 // ExampleLRU shows a small example of how to initialize a LRU instance and
 // do basic operations like Put, Size, Peek and Capacity.
 func ExampleLRU() {
-	cache, err := lrucore.New[int, Member](256) // create a lru instance
+	cache, err := core.New[int, Member](256) // create a lru instance
 	if err != nil {
 		fmt.Printf("[ERROR] could not initialize LRU instance: %v", err)
 		return
@@ -56,7 +56,7 @@ func ExampleLRU() {
 
 // ExampleLRU_GetMany shows an example on how GetMany works.
 func ExampleLRU_GetMany() {
-	cache, err := lrucore.New[int, Member](256) // create a lru instance
+	cache, err := core.New[int, Member](256) // create a lru instance
 	if err != nil {
 		fmt.Printf("[ERROR] could not initialize LRU instance: %v", err)
 		return
@@ -110,7 +110,7 @@ func ExampleLRU_GetMany() {
 
 // ExampleLRU_PutMany shows an example on how PutMany works.
 func ExampleLRU_PutMany() {
-	cache, err := lrucore.New[int, Member](256) // create a lru instance
+	cache, err := core.New[int, Member](256) // create a lru instance
 	if err != nil {
 		fmt.Printf("[ERROR] could not initialize LRU instance: %v", err)
 		return

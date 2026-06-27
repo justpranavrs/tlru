@@ -6,13 +6,13 @@ package testutil
 
 import (
 	"fmt"
+	"math/bits"
 	"math/rand/v2"
 	"strconv"
 	"sync"
 	"testing"
 
-	"github.com/justpranavrs/tlru/internal/mathutil"
-	"github.com/justpranavrs/tlru/lrucore"
+	core "github.com/justpranavrs/tlru/core"
 	"github.com/justpranavrs/tlru/mux"
 )
 
@@ -205,7 +205,7 @@ func FuzzCache(f *testing.F, cache CacheTest[int, User], mux mux.Mux[int], numOp
 					t.Fatalf("\n[ERROR] unexpected size of cache, expected: %d, value: %d, tick: %d", totalSize, sz, tk)
 				}
 			case opUpsert:
-				var st lrucore.UpsertState
+				var st core.UpsertState
 
 				ste, _ := cache.Upsert(key, user)
 				if !isCached {
@@ -213,14 +213,14 @@ func FuzzCache(f *testing.F, cache CacheTest[int, User], mux mux.Mux[int], numOp
 						idx := evictKey(tick, shard, mux)
 						state[idx] = User{}
 						tick[idx] = -1
-						st = lrucore.AddOnEvict
+						st = core.AddOnEvict
 					} else {
 						size[shard]++
 						totalSize++
-						st = lrucore.AddNoEvict
+						st = core.AddNoEvict
 					}
 				} else {
-					st = lrucore.Replace
+					st = core.Replace
 				}
 
 				if st != ste {
@@ -241,7 +241,7 @@ func BenchmarkCache(
 	b *testing.B, cache CacheTest[int, User], prefix string, capacity int,
 	numOps int, data []CacheOp,
 ) {
-	numOps = mathutil.NextPowerOf2(uint(numOps))
+	numOps = 1 << bits.Len(uint(numOps)-1)
 	numOpsMask := numOps - 1
 	var sink User
 

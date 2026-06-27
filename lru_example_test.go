@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/justpranavrs/tlru"
-	"github.com/justpranavrs/tlru/lrucore"
+	core "github.com/justpranavrs/tlru/core"
 )
 
 // Member is the type of the value stored in the cache.
@@ -299,7 +299,7 @@ func ExamplePoolLRU_Upsert() {
 		Name:  "justpranavrs",
 		Email: "iliketlru@gmail.com",
 	})
-	if state == lrucore.AddNoEvict {
+	if state == core.AddNoEvict {
 		fmt.Println("[UPSERT] : Add without Eviction")
 	}
 
@@ -313,7 +313,7 @@ func ExamplePoolLRU_Upsert() {
 		Name:  "welcometotlru",
 		Email: "welcometotlru@gmail.com",
 	})
-	if state == lrucore.AddNoEvict {
+	if state == core.AddNoEvict {
 		fmt.Println("[UPSERT] : Add without Eviction")
 	}
 
@@ -324,7 +324,7 @@ func ExamplePoolLRU_Upsert() {
 		Name:  "justpranavrs",
 		Email: "tlruiscool@gmail.com",
 	})
-	if state == lrucore.AddOnEvict {
+	if state == core.AddOnEvict {
 		fmt.Println("[UPSERT] : Add on Eviction")
 		fmt.Printf("[UPSERT] Name : %v | Email : %v\n", val.Name, val.Email)
 	}
@@ -339,7 +339,7 @@ func ExamplePoolLRU_Upsert() {
 		Name:  "justpranavrs",
 		Email: "jprs-tlru@gmail.com",
 	})
-	if state == lrucore.Replace {
+	if state == core.Replace {
 		fmt.Println("[UPSERT] : Value Replaced")
 		fmt.Printf("[UPSERT] Name : %v | Email : %v\n", val.Name, val.Email)
 	}

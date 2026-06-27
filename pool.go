@@ -8,12 +8,12 @@ import (
 	"errors"
 	"math"
 
-	"github.com/justpranavrs/tlru/lrucore"
+	core "github.com/justpranavrs/tlru/core"
 	"github.com/justpranavrs/tlru/mux"
 )
 
 // Pool defines the general implementation of a 'Least Recently Used' cache
-// with a collection of [lrucore.Shard].
+// with a collection of [core.Shard].
 // It has thread-safe operations.
 //
 // K represents the type of the key, whereas V represents the type of the Value
@@ -54,20 +54,20 @@ type Pool[K comparable, V any] interface {
 	Size() int
 
 	// Stats return the current stats of the LRU cache.
-	Stats() lrucore.Stats
+	Stats() core.Stats
 
 	// Upsert adds a new value to the cache with the given key.
 	// It returns a value based on how the internal state of the cache changed.
-	Upsert(key K, value V) (lrucore.UpsertState, V)
+	Upsert(key K, value V) (core.UpsertState, V)
 }
 
 // pool is the internal sharding container used by [PoolLRU] and [PoolTLRU].
 // It handles routing via [mux.Mux] and maintains the shards.
-type pool[K comparable, V any, C lrucore.Shard[K, V]] struct {
+type pool[K comparable, V any, C core.Shard[K, V]] struct {
 	// capacity represents the maximum allocated space for the LRU cache.
 	capacity int
 
-	// shards is an array of the multiple instances of [lrucore.Shard].
+	// shards is an array of the multiple instances of [core.Shard].
 	shards []C
 
 	// mux is the router for the shards in the shards array.
@@ -87,7 +87,7 @@ var (
 )
 
 // assemble creates a [cache] instance with the provided arguments. It creates shards based on the createShard function.
-func assemble[K comparable, V any, C lrucore.Shard[K, V]](capacity int, nShards int, hash mux.Mux[K], createShard func(cap int) (C, error)) (pool[K, V, C], error) {
+func assemble[K comparable, V any, C core.Shard[K, V]](capacity int, nShards int, hash mux.Mux[K], createShard func(cap int) (C, error)) (pool[K, V, C], error) {
 	var zero pool[K, V, C]
 	if capacity < int(nShards*2) || (capacity > math.MaxInt32) {
 		return zero, ErrInvalidCapacity
@@ -106,7 +106,7 @@ func assemble[K comparable, V any, C lrucore.Shard[K, V]](capacity int, nShards 
 
 		shards[i], err = createShard(sCap)
 		if err != nil {
-			if errors.Is(err, lrucore.ErrInvalidCapacity) {
+			if errors.Is(err, core.ErrInvalidCapacity) {
 				return zero, ErrInvalidCapacity
 			}
 			return zero, err
@@ -120,7 +120,7 @@ func assemble[K comparable, V any, C lrucore.Shard[K, V]](capacity int, nShards 
 }
 
 // Capacity returns the maximum allocated capacity of the LRU cache
-// across all sharded instances of [lrucore.Shard].
+// across all sharded instances of [core.Shard].
 func (l *pool[K, V, C]) Capacity() int {
 	return l.capacity
 }
@@ -204,8 +204,8 @@ func (l *pool[K, V, C]) Size() int {
 }
 
 // Stats return the current stats of the sharded LRU cache.
-func (l *pool[K, V, C]) Stats() lrucore.Stats {
-	stats := lrucore.Stats{}
+func (l *pool[K, V, C]) Stats() core.Stats {
+	stats := core.Stats{}
 	for i := range l.shards {
 		st := l.shards[i].Stats()
 		stats.Hits += st.Hits
@@ -219,13 +219,13 @@ func (l *pool[K, V, C]) Stats() lrucore.Stats {
 // Upsert adds a new value to the cache with the given key.
 // It returns a value based on how the internal state of the cache changed.
 // It evicts or updates locally on the shard, instead of global cache.
-// Returns a value [lrucore.UpsertState].
+// Returns a value [core.UpsertState].
 //
-// It also returns a value based on [lrucore.UpsertState]
-//   - [lrucore.AddNoEvict] returns the zero value of V.
-//   - [lrucore.AddOnEvict] returns the evicted value.
-//   - [lrucore.Replace] returns the old value the key had.
-func (l *pool[K, V, C]) Upsert(key K, value V) (lrucore.UpsertState, V) {
+// It also returns a value based on [core.UpsertState]
+//   - [core.AddNoEvict] returns the zero value of V.
+//   - [core.AddOnEvict] returns the evicted value.
+//   - [core.Replace] returns the old value the key had.
+func (l *pool[K, V, C]) Upsert(key K, value V) (core.UpsertState, V) {
 	shard := l.mux(key)
 	return l.shards[shard].Upsert(key, value)
 }

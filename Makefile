@@ -10,10 +10,10 @@ test:
 	go test  -v ./...
 
 fuzz_core:
-	go test -fuzz=FuzzLRUCore ./lrucore
+	go test -fuzz=FuzzLRU ./core
 
 fuzz:
-	go test -fuzz=FuzzLRU .
+	go test -fuzz=FuzzPoolLRU .
 
 bench:
 	go test -bench=. -benchmem ./...

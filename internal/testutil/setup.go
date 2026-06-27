@@ -7,7 +7,7 @@ package testutil
 import (
 	"math"
 
-	"github.com/justpranavrs/tlru/lrucore"
+	"github.com/justpranavrs/tlru/core"
 )
 
 // methods enum
@@ -34,7 +34,7 @@ type CacheTest[K comparable, V any] interface {
 	Get(key K) (V, bool)
 	Peek(key K) (V, bool)
 	Put(key K, value V)
-	Upsert(key K, value V) (lrucore.UpsertState, V)
+	Upsert(key K, value V) (core.UpsertState, V)
 	Size() int
 }
 

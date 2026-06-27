@@ -7,7 +7,7 @@ package tlru
 import (
 	"math"
 
-	"github.com/justpranavrs/tlru/lrucore"
+	core "github.com/justpranavrs/tlru/core"
 	"github.com/justpranavrs/tlru/mux"
 )
 
@@ -15,19 +15,19 @@ import (
 // if [WithShards] option is not configured.
 const DefaultShards int = 128
 
-// PoolLRU is the better implementation of [lrucore.LRU]. It is a
-// 'Least Recently Used' cache with many instances of [lrucore.LRU]
+// PoolLRU is the better implementation of [core.LRU]. It is a
+// 'Least Recently Used' cache with many instances of [core.LRU]
 // to prevent mutual extension locks on a single instance.
 // It has thread-safe but not a completely lock free operations.
 //
 // It doesn't work on the standard principle of LRU, rather when the mux
-// routes it to a [lrucore.LRU] instance. LRU works on shard-local based eviction
+// routes it to a [core.LRU] instance. LRU works on shard-local based eviction
 // not on globally oldest item in the cache.
 //
 // [mux.Mux] takes care of routing the shards to their containers consistently
 // using its hashing algorithm. The default mux is [mux.NewMH32].
 type PoolLRU[K comparable, V any] struct {
-	pool[K, V, *lrucore.LRU[K, V]]
+	pool[K, V, *core.LRU[K, V]]
 }
 
 // lruConfig represents the configuration of [PoolLRU]. It should be used with [LRUOption].
@@ -40,7 +40,7 @@ type lruConfig struct {
 type LRUOption func(c *lruConfig) error
 
 // New creates a [PoolLRU] instance with the given capacity and options. It creates
-// the required [lrucore.PoolLRU] instances, initiates the [mux.Mux] for shard routing.
+// the required [core.PoolLRU] instances, initiates the [mux.Mux] for shard routing.
 // It defaults to the Mux with hash/maphash algorithm. Check `tlru/mux` package for alternatives.
 //
 // Returns [ErrInvalidShards] if shards is not in range [1, 1073741823].
@@ -74,8 +74,8 @@ func New[K comparable, V any](capacity int, opts ...LRUOption) (*PoolLRU[K, V], 
 		hash = mux.NewMH32[K](cfg.shards)
 	}
 
-	createShard := func(cap int) (*lrucore.LRU[K, V], error) {
-		return lrucore.New[K, V](cap)
+	createShard := func(cap int) (*core.LRU[K, V], error) {
+		return core.New[K, V](cap)
 	}
 	pool, err := assemble(capacity, cfg.shards, hash, createShard)
 	if err != nil {
@@ -96,7 +96,7 @@ func WithMux[K comparable](cm mux.Mux[K]) LRUOption {
 }
 
 // WithShards assigns the [PoolLRU] instance with num shards. Shards are separate instances
-// of [lrucore.Shard] to prevent mutex locks from slowing down the cache.
+// of [core.Shard] to prevent mutex locks from slowing down the cache.
 //
 // Returns [ErrInvalidShards] if num is not in range [1, 1073741823].
 func WithShards(num int) LRUOption {

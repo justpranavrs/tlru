@@ -2,12 +2,12 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package lrucore
+package core
 
 import (
 	"time"
 
-	"github.com/justpranavrs/tlru/lruclock"
+	"github.com/justpranavrs/tlru/clock"
 )
 
 // TTLShard defines the blueprint of a 'Time-Aware Least Recently Used'.
@@ -44,14 +44,15 @@ type TTLShard[K comparable, V any] interface {
 }
 
 // tlruBase extends [base] for TTL support. It is not safe
-// for concurrent workloads.
+// for concurrent workloads. [syncBase] provides the [sync.Mutex]
+// locks for it.
 type tlruBase[K comparable, V any] struct {
 	// base represents the main cache which holds the keys and values.
-	base *base[K, ttlValue[V]]
+	*base[K, ttlValue[V]]
 
 	// clock is the background timer to ensure fast time loads
 	// without halting the LRU operations.
-	clock *lruclock.Clock
+	clock *clock.Clock
 
 	// ttl determines the default (time-to-live) duration of an element.
 	ttl int64
@@ -72,7 +73,7 @@ type ttlValue[V any] struct {
 
 // assembleTLRU creates an instance of [tlruBase] using the given capacity and sets
 // the default expiration timer based on the argument "ttl".
-func assembleTLRU[K comparable, V any](capacity int, ttl time.Duration, clock *lruclock.Clock, sliding bool) (*tlruBase[K, V], error) {
+func assembleTLRU[K comparable, V any](capacity int, ttl time.Duration, clock *clock.Clock, sliding bool) (*tlruBase[K, V], error) {
 	base, err := assembleBase[K, ttlValue[V]](capacity)
 	if err != nil {
 		return nil, err
@@ -84,11 +85,6 @@ func assembleTLRU[K comparable, V any](capacity int, ttl time.Duration, clock *l
 		ttl:     clock.Ticks(ttl),
 		sliding: sliding,
 	}, nil
-}
-
-// Capacity returns the maximum allocated capacity of the LRU cache.
-func (l *tlruBase[K, V]) Capacity() int {
-	return l.base.Capacity()
 }
 
 // Contains checks whether the key is present in the Cache.
@@ -109,11 +105,6 @@ func (l *tlruBase[K, V]) Close() {
 func (l *tlruBase[K, V]) Delete(key K) (V, bool) {
 	val, ok := l.base.Delete(key)
 	return val.value, ok
-}
-
-// Flush clears the LRU cache of all its keys and values.
-func (l *tlruBase[K, V]) Flush() {
-	l.base.Flush()
 }
 
 // Get retrieves the cache value using key.
@@ -205,27 +196,12 @@ func (l *tlruBase[K, V]) Refresh(key K) bool {
 	return l.refreshKey(key, l.ttl)
 }
 
-// ResetStats resets the stats of the LRU cache.
-func (l *tlruBase[K, V]) ResetStats() {
-	l.base.ResetStats()
-}
-
 // SetTTL resets the TTL of an existing key using the given ttl in the argument.
 // It returns false if the key could not be found.
 //
 // The ttl value is rounded off in terms of its internal clock ticks.
 func (l *tlruBase[K, V]) SetTTL(key K, ttl time.Duration) bool {
 	return l.refreshKey(key, l.clock.Ticks(ttl))
-}
-
-// Size returns the current size of the LRU cache.
-func (l *tlruBase[K, V]) Size() int {
-	return l.base.Size()
-}
-
-// Stats return the current stats of the LRU cache.
-func (l *tlruBase[K, V]) Stats() Stats {
-	return l.base.Stats()
 }
 
 // TTL returns the remaining TTL for the key.
@@ -258,35 +234,35 @@ func (l *tlruBase[K, V]) UpsertWithTTL(key K, value V, ttl time.Duration) (Upser
 // expireKey verifies if the timestamp has expired. If it has, it will evict the key.
 func (l *tlruBase[K, V]) expireKey(idx int32, val ttlValue[V]) (V, time.Duration, bool) {
 	if val.expiresAt <= l.clock.Now() {
-		l.base.deleteKey(idx)
-		l.base.stats.Expirations++
+		l.deleteKey(idx)
+		l.stats.Expirations++
 
-		l.base.stats.Misses++
+		l.stats.Misses++
 		return *new(V), 0, false
 	}
 	if l.sliding {
-		l.base.nodes[idx].value.expiresAt = l.clock.Now() + l.ttl
+		l.nodes[idx].value.expiresAt = l.clock.Now() + l.ttl
 	}
 	return val.value, l.clock.Duration() * time.Duration(l.clock.Until(val.expiresAt)), true
 }
 
 // getKey retrieves the value and also removes the key if the key has expired.
 func (l *tlruBase[K, V]) getKey(key K) (V, time.Duration, bool) {
-	curr, ok := l.base.hash[key]
+	curr, ok := l.hash[key]
 	if !ok {
 		return *new(V), 0, false // not present in cache
 	}
-	return l.expireKey(curr, l.base.getIndex(curr))
+	return l.expireKey(curr, l.getIndex(curr))
 }
 
 // peekKey retrieves the value based on the key provided in the argument,
 // without ever changing the internal state of the cache unless the key is expired.
 func (l *tlruBase[K, V]) peekKey(key K) (V, time.Duration, bool) {
-	curr, ok := l.base.hash[key]
+	curr, ok := l.hash[key]
 	if !ok {
 		return *new(V), 0, false // not present in cache
 	}
-	return l.expireKey(curr, l.base.nodes[curr].value)
+	return l.expireKey(curr, l.nodes[curr].value)
 }
 
 // putKey inserts the new key and value into the cache. It returns how
@@ -300,7 +276,7 @@ func (l *tlruBase[K, V]) putKey(key K, value V, ttl int64) (UpsertState, V) {
 	})
 	if state == Replace {
 		if val.expiresAt <= l.clock.Now() {
-			l.base.stats.Expirations++
+			l.stats.Expirations++
 			return AddAfterExpiration, val.value
 		}
 		return Replace, val.value
@@ -309,11 +285,11 @@ func (l *tlruBase[K, V]) putKey(key K, value V, ttl int64) (UpsertState, V) {
 }
 
 func (l *tlruBase[K, V]) refreshKey(key K, ttl int64) bool {
-	curr, ok := l.base.hash[key]
+	curr, ok := l.hash[key]
 	if !ok {
 		return false // not present in cache
 	}
 
-	l.base.nodes[curr].value.expiresAt = l.clock.Now() + ttl
+	l.nodes[curr].value.expiresAt = l.clock.Now() + ttl
 	return true
 }

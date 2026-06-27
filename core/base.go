@@ -2,12 +2,11 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package lrucore
+package core
 
 import "math"
 
 // Shard defines the most basic blueprint of a 'Least Recently Used' cache.
-// It is not safe on concurrent workloads.
 //
 // As Items are Added to the Cache, The 'Least Recently Used' key
 // is evicted from the Cache.
@@ -76,7 +75,8 @@ type Stats struct {
 }
 
 // base is the initial unlocked doubly-linked list implementation of
-// Least Recently Used cache.
+// Least Recently Used cache. It is not safe for concurrent workloads.
+// [syncBase] provides the [sync.Mutex] locks for it.
 type base[K comparable, V any] struct {
 	// hash maps the key to a unique index in the nodes array.
 	hash map[K]int32
