@@ -12,7 +12,7 @@ import (
 	"sync"
 	"testing"
 
-	core "github.com/justpranavrs/tlru/core"
+	"github.com/justpranavrs/tlru/core"
 	"github.com/justpranavrs/tlru/mux"
 )
 
@@ -104,7 +104,7 @@ func TestRaceCache[K comparable](
 }
 
 // FuzzCache runs a Fuzz test on the Cache instance.
-func FuzzCache(f *testing.F, cache CacheTest[int, User], mux mux.Mux[int], numOps int, capacity int, shards int) {
+func FuzzCache(f *testing.F, cache CacheTest[int, User], mux mux.Mux[int], numOps int, capacity int, fuzzKeys int, shards int) {
 	actionMask := len(actions) - 1
 	keyMask := fuzzKeys - 1
 	maxSize := capacity / int(shards)
@@ -274,7 +274,7 @@ func BenchmarkCache(
 		b.ReportAllocs()
 		cache.Flush()
 
-		for i := 0; cache.Size() < capacity; i++ {
+		for i := 0; i < capacity; i++ {
 			cache.Put(data[i].Key, data[i].Value)
 		}
 		b.ResetTimer()
@@ -309,7 +309,7 @@ func BenchmarkCache(
 		b.ReportAllocs()
 		cache.Flush()
 
-		for i := 0; cache.Size() < capacity; i++ {
+		for i := 0; i < capacity; i++ {
 			cache.Put(data[i].Key, data[i].Value)
 		}
 		b.ResetTimer()

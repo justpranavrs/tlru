@@ -32,7 +32,7 @@ The `[int, int]` is use of Go Generics, introduced in `Go 1.18`. Refer [here](ht
 
 The above instance has a default of `128` shards, distributed with a capacity of 200 each, `25600 / 128 = 200`.
 
-If the shards were not a perfect divisible of the capacity, the remainder will go to some of the shards, leaving an uneven distribution. It is recommended to provide the number of shards as a factor of the capacity for `even distributions`.
+If the capacity is not perfectly divisible by the number of shards, the remainder will go to some of the shards, leaving an uneven distribution. It is recommended to provide the number of shards as a factor of the capacity for `even distributions`.
 
 ### Customizing the Number of Shards
 
@@ -54,7 +54,8 @@ To customize the mux hashing algorithm, the `WithMux` method has to be used as s
 
 ```go
 capacity := 25600
-cache, err := tlru.New[int, string](capacity, tlru.WithMux(mux.NewF32[int](capacity)))
+shards := 128
+cache, err := tlru.New[int, string](capacity, tlru.WithMux(mux.NewF32[int](shards)))
 ```
 
 The above snippet uses the FNV-1a algorithm, than the default `hash/maphash` algorithm.
@@ -70,7 +71,7 @@ Below are the given algorithms currently in the `tlru/mux` package:
 To use a custom mux hash algorithm, it has to be of type `mux.Mux` which is,
 
 ```go
-type Mux[K comparable] func(key K) (uint32, bool)
+type Mux[K comparable] func(key K) uint32
 ```
 
 Here is a basic implementation of a Mux
@@ -110,7 +111,7 @@ The `WithSliding` option enables `Sliding TTL` which updates the timestamps of t
 
 The below examples demonstrates how to create a cache with `Sliding TTL`.
 ```go
-cache, err := tlru.NewWithTTL[int, string](25600, 5 * time.Hour, WithSliding())
+cache, err := tlru.NewWithTTL[int, string](25600, 5 * time.Hour, tlru.WithSliding())
 ```
 
 #### Using a Custom Clock

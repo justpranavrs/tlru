@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"strconv"
 
-	core "github.com/justpranavrs/tlru/core"
+	"github.com/justpranavrs/tlru/core"
 )
 
 // Member is the type of the value stored in the cache.

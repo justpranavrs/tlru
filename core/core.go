@@ -17,17 +17,31 @@ import (
 //
 // It is recommended for key K to be primitives such as ([int], [uint64], [string]).
 type LRU[K comparable, V any] struct {
-	syncBase[K, V, *base[K, V]]
+	syncBase[K, V, *lruBase[K, V]]
+}
+
+// SLRU is the implementation of Segmented LRU. It uses two LRU instances,
+// probationary and protected to reduce sequential scan problems from
+// a single LRU instance.
+type SLRU[K comparable, V any] struct {
+	syncBase[K, V, *slruBase[K, V]]
 }
 
 // TLRU is the implementation of 'LRU' with TTL (Time-To-Live). It
 // operates on an internal clock from [clock.Clock] and operates with an instance
 // of [LRU].
 type TLRU[K comparable, V any] struct {
-	syncBase[K, V, *tlruBase[K, V]]
+	tSyncBase[K, V, *tlruBase[K, V, *lruBase[K, ttlValue[V]]]]
 }
 
-// ttlConfig represents the configuration of [TLRU]. It should be used with [TTLOption].
+// TSLRU is the implementation of 'SLRU' with TTL (Time-To-Live). It
+// operates on an internal clock from [clock.Clock] and operates with an instance
+// of [SLRU].
+type TSLRU[K comparable, V any] struct {
+	tSyncBase[K, V, *tlruBase[K, V, *slruBase[K, ttlValue[V]]]]
+}
+
+// ttlConfig represents the configuration of [TLRU] and [TSLRU]. It should be used with [TTLOption].
 type ttlConfig struct {
 	// internal clock
 	clock *clock.Clock
@@ -36,27 +50,53 @@ type ttlConfig struct {
 	sliding bool
 }
 
-// TTLOption is used to configure [TLRU] when creating an instance using [NewWithTTL] constructor.
+// TTLOption is used to configure [TLRU] or [TSLRU] when creating an instance using their constructors.
 type TTLOption func(c *ttlConfig)
 
 var (
 	// ErrInvalidBatchSize is returned by batch operations when keys and values do not have the same lengths.
-	ErrInvalidBatchSize = errors.New("invalid LRU batch sizes: keys and values do not have the same lengths")
+	ErrInvalidBatchSize = errors.New("invalid batch sizes: keys and values do not have the same lengths")
 
-	// ErrInvalidCapacity is returned by [New] or [NewWithTTL] when the maximum cache capacity is not in [2, 2147483645].
-	ErrInvalidCapacity = errors.New("invalid LRU cache capacity: must be in the range [2, 2147483645]")
+	// ErrInvalidCapacity is returned by constructors when the maximum cache capacity is too small to be configured for the cache.
+	ErrInvalidCapacity = errors.New("invalid cache capacity: total capacity is too small for the configured for the cache")
+
+	// ErrInvalidSLRURatio is returned by [NewSLRU] when the ratio is not between 0 and 100.
+	ErrInvalidSLRURatio = errors.New("invalid probationary ratio: value must be between 0 and 100")
 )
 
 // New creates an instance of [LRU] using the given capacity.
 //
-// Returns an [ErrInvalidCapacity] if the capacity is not in [2, 2147483645].
+// Returns an [ErrInvalidCapacity] if the capacity is too small to be configured for the cache.
 func New[K comparable, V any](capacity int) (*LRU[K, V], error) {
-	lru, err := assembleBase[K, V](capacity)
+	lru, err := assembleLRU[K, V](capacity)
 	if err != nil {
 		return nil, err
 	}
 	return &LRU[K, V]{
-		syncBase: syncBase[K, V, *base[K, V]]{
+		syncBase: syncBase[K, V, *lruBase[K, V]]{
+			lru: lru,
+		},
+	}, nil
+}
+
+// NewSLRU creates an instance of [SLRU] using the given capacity.
+// It takes in a ratio which declares the ratio of probationary capacity
+// to the capacity. It is in Percentage.
+//
+// Example : If the ratio is 5 and the capacity is 1000,
+// Capacity :- Probationary : 50, Protected : 950
+//
+// Returns an [ErrInvalidCapacity] if each of the probationary
+// and protected capacities are too small to be configured for the caches.
+//
+// Returns an [ErrInvalidSLRURatio] if the ratio is not between 0 and 100.
+func NewSLRU[K comparable, V any](capacity int, ratio int) (*SLRU[K, V], error) {
+	lru, err := assembleSLRU[K, V](capacity, ratio)
+	if err != nil {
+		return nil, err
+	}
+	return &SLRU[K, V]{
+		syncBase: syncBase[K, V, *slruBase[K, V]]{
 			lru: lru,
 		},
 	}, nil
@@ -71,7 +111,7 @@ func New[K comparable, V any](capacity int) (*LRU[K, V], error) {
 // It operates on a default clock with 100ms. To customize the
 // Clock, refer [WithClock].
 //
-// Returns an [ErrInvalidCapacity] if the capacity is not in [2, 2147483645].
+// Returns an [ErrInvalidCapacity] if the capacity is too small to be configured for the cache.
 func NewWithTTL[K comparable, V any](capacity int, ttl time.Duration, opts ...TTLOption) (*TLRU[K, V], error) {
 	// build the config
 	cfg := ttlConfig{
@@ -93,13 +133,51 @@ func NewWithTTL[K comparable, V any](capacity int, ttl time.Duration, opts ...TT
 		_ = clk.Start()
 	}
 
-	lru, err := assembleTLRU[K, V](capacity, ttl, clk, cfg.sliding)
+	lru, err := assembleLRU[K, ttlValue[V]](capacity)
 	if err != nil {
 		return nil, err
 	}
 	return &TLRU[K, V]{
-		syncBase: syncBase[K, V, *tlruBase[K, V]]{
-			lru: lru,
+		tSyncBase: tSyncBase[K, V, *tlruBase[K, V, *lruBase[K, ttlValue[V]]]]{
+			lru: assembleWithTTL(lru, ttl, clk, cfg.sliding),
+		},
+	}, nil
+}
+
+// NewSLRUWithTTL creates an instance of [TSLRU] using the given capacity and sets
+// the default expiration timer based on the argument "ttl".
+//
+// Refer [NewSLRU] for more details.
+//
+// Refer [NewWithTTL] for more details.
+func NewSLRUWithTTL[K comparable, V any](capacity int, ratio int, ttl time.Duration, opts ...TTLOption) (*TSLRU[K, V], error) {
+	// build the config
+	cfg := ttlConfig{
+		clock:   nil,
+		sliding: false,
+	}
+	for _, opt := range opts { // options
+		if opt == nil {
+			continue
+		}
+		opt(&cfg)
+	}
+
+	var clk *clock.Clock
+	if cfg.clock != nil {
+		clk = cfg.clock
+	} else {
+		clk = clock.New(100 * time.Millisecond)
+		_ = clk.Start()
+	}
+
+	lru, err := assembleSLRU[K, ttlValue[V]](capacity, ratio)
+	if err != nil {
+		return nil, err
+	}
+	return &TSLRU[K, V]{
+		tSyncBase: tSyncBase[K, V, *tlruBase[K, V, *slruBase[K, ttlValue[V]]]]{
+			lru: assembleWithTTL(lru, ttl, clk, cfg.sliding),
 		},
 	}, nil
 }
@@ -122,79 +200,4 @@ func WithSliding() TTLOption {
 	return func(c *ttlConfig) {
 		c.sliding = true
 	}
-}
-
-// Close safely closes the background clock when TTL is enabled on the cache.
-func (t *TLRU[K, V]) Close() {
-	t.lru.Close()
-}
-
-// Check [TLRU.Get] on how Get works.
-// It also returns the remaining TTL in the key if it was found in the cache.
-func (t *TLRU[K, V]) GetWithTTL(key K) (V, time.Duration, bool) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
-	return t.lru.GetWithTTL(key)
-}
-
-// Check [TLRU.Peek] on how Peek works.
-// It also returns the remaining TTL in the key if it was found in the cache.
-func (t *TLRU[K, V]) PeekWithTTL(key K) (V, time.Duration, bool) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
-	return t.lru.PeekWithTTL(key)
-}
-
-// PutWithTTL adds a new value to the cache with the given key and the provided ttl value.
-//
-// The ttl value is rounded off in terms of its internal clock ticks.
-//
-// Check [TLRU.Put] on how Put works.
-func (t *TLRU[K, V]) PutWithTTL(key K, value V, ttl time.Duration) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
-	t.lru.PutWithTTL(key, value, ttl)
-}
-
-// Refresh resets the TTL of an existing key using the default ttl.
-// It returns false if the key could not be found.
-func (t *TLRU[K, V]) Refresh(key K) bool {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
-	return t.lru.Refresh(key)
-}
-
-// SetTTL resets the TTL of an existing key using the provided ttl value.
-// It returns false if the key could not be found.
-//
-// The ttl value is rounded off in terms of its internal clock ticks.
-func (t *TLRU[K, V]) SetTTL(key K, ttl time.Duration) bool {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
-	return t.lru.SetTTL(key, ttl)
-}
-
-// TTL returns the remaining TTL for the key.
-func (t *TLRU[K, V]) TTL(key K) (time.Duration, bool) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
-	return t.lru.TTL(key)
-}
-
-// UpsertWithTTL adds a new value to the cache with the given key and the provided ttl value.
-//
-// The ttl value is rounded off in terms of its internal clock ticks.
-//
-// Check [TLRU.Upsert] on how Upsert works.
-func (t *TLRU[K, V]) UpsertWithTTL(key K, value V, ttl time.Duration) (UpsertState, V) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
-	return t.lru.UpsertWithTTL(key, value, ttl)
 }

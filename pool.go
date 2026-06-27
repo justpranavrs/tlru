@@ -8,7 +8,7 @@ import (
 	"errors"
 	"math"
 
-	core "github.com/justpranavrs/tlru/core"
+	"github.com/justpranavrs/tlru/core"
 	"github.com/justpranavrs/tlru/mux"
 )
 
@@ -79,14 +79,14 @@ var (
 	// ErrInvalidCapacity is returned by [New] when an invalid cache capacity is passed as argument.
 	ErrInvalidCapacity = errors.New("invalid LRU cache capacity: must be in the range of int32 and greater than or equal to twice the number of shards")
 
-	// ErrInvalidMuxKey is returned by [New] when mux does not have the same key type as LRU.
-	ErrInvalidMuxKey = errors.New("invalid mux for LRU: mux does not have the same key type as LRU")
+	// ErrInvalidMuxKey is returned by constructors when mux does not have the same key type as the cache.
+	ErrInvalidMuxKey = errors.New("invalid mux for cache: mux does not have the same key type as the cache")
 
 	// ErrInvalidShards is returned by [New] when an invalid number of shards is passed using WithShards.
-	ErrInvalidShards = errors.New("invalid number of shards: must be in range [1, 1073741823]")
+	ErrInvalidShards = errors.New("invalid number of shards: must be in range [1, 1000000000]")
 )
 
-// assemble creates a [cache] instance with the provided arguments. It creates shards based on the createShard function.
+// assemble creates a [pool] instance with the provided arguments. It creates shards based on the createShard function.
 func assemble[K comparable, V any, C core.Shard[K, V]](capacity int, nShards int, hash mux.Mux[K], createShard func(cap int) (C, error)) (pool[K, V, C], error) {
 	var zero pool[K, V, C]
 	if capacity < int(nShards*2) || (capacity > math.MaxInt32) {
@@ -106,9 +106,6 @@ func assemble[K comparable, V any, C core.Shard[K, V]](capacity int, nShards int
 
 		shards[i], err = createShard(sCap)
 		if err != nil {
-			if errors.Is(err, core.ErrInvalidCapacity) {
-				return zero, ErrInvalidCapacity
-			}
 			return zero, err
 		}
 	}
@@ -178,7 +175,8 @@ func (l *pool[K, V, C]) Peek(key K) (V, bool) {
 // It updates the key as 'recent' only in its respective shard.
 // It evicts the key only from the respective shard the key is linked to.
 func (l *pool[K, V, C]) Put(key K, value V) {
-	l.Upsert(key, value)
+	shard := l.mux(key)
+	l.shards[shard].Put(key, value)
 }
 
 // ResetStats resets the stats of the sharded LRU cache.

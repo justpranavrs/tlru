@@ -8,11 +8,11 @@ import (
 	"time"
 
 	"github.com/justpranavrs/tlru/clock"
-	core "github.com/justpranavrs/tlru/core"
+	"github.com/justpranavrs/tlru/core"
 	"github.com/justpranavrs/tlru/mux"
 )
 
-// PoolTLRU is the better implementation of [core.TLRU]. It creates
+// PoolTLRU is the TTL implementation of [core.TLRU]. It creates
 // many instances of [core.TLRU] and works based on [PoolLRU].
 // It manages a unified clock for all the separate instances.
 type PoolTLRU[K comparable, V any] struct {
@@ -54,10 +54,11 @@ func (f LRUOption) apply(c *tlruConfig) error {
 // It operates on a default clock with 100ms. To customize the
 // Clock, refer [WithClock].
 //
-// Returns [ErrInvalidShards] if shards is not in range [1, 1073741823].
+// It has compatibility with [LRUOption] too.
 //
-// Returns [ErrInvalidCapacity] if capacity is not in the range of int32
-// and greater than or equal to twice the number of shards.
+// Returns [ErrInvalidShards] if shards is not in range [1, 1000000000].
+//
+// Returns [ErrInvalidCapacity] if capacity is too small to be configured for the cache.
 func NewWithTTL[K comparable, V any](capacity int, ttl time.Duration, opts ...TLRUOption) (*PoolTLRU[K, V], error) {
 	// build the config
 	cfg := tlruConfig{
@@ -115,22 +116,24 @@ func NewWithTTL[K comparable, V any](capacity int, ttl time.Duration, opts ...TL
 //
 // NOTE: Using WithClock on [NewWithTTL] will not start the clock. Use [clock.Clock.Start] to
 // initiate the timer.
-func WithClock(clock *clock.Clock) tlruOpt {
-	return func(c *tlruConfig) error {
+func WithClock(clock *clock.Clock) TLRUOption {
+	clockOpt := func(c *tlruConfig) error {
 		c.clock = clock
 		return nil
 	}
+	return tlruOpt(clockOpt)
 }
 
 // WithSliding enables Sliding TTL on the LRU cache.
 //
 // It will update the timestamp of the key on [PoolTLRU.Get] and
 // [PoolTLRU.Put].
-func WithSliding() tlruOpt {
-	return func(c *tlruConfig) error {
+func WithSliding() TLRUOption {
+	slideOpt := func(c *tlruConfig) error {
 		c.sliding = true
 		return nil
 	}
+	return tlruOpt(slideOpt)
 }
 
 // Close safely closes the background clock when TTL is enabled on the cache.

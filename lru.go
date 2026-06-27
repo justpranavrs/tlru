@@ -5,9 +5,7 @@
 package tlru
 
 import (
-	"math"
-
-	core "github.com/justpranavrs/tlru/core"
+	"github.com/justpranavrs/tlru/core"
 	"github.com/justpranavrs/tlru/mux"
 )
 
@@ -40,13 +38,12 @@ type lruConfig struct {
 type LRUOption func(c *lruConfig) error
 
 // New creates a [PoolLRU] instance with the given capacity and options. It creates
-// the required [core.PoolLRU] instances, initiates the [mux.Mux] for shard routing.
+// the required [core.LRU] instances, initiates the [mux.Mux] for shard routing.
 // It defaults to the Mux with hash/maphash algorithm. Check `tlru/mux` package for alternatives.
 //
-// Returns [ErrInvalidShards] if shards is not in range [1, 1073741823].
+// Returns [ErrInvalidShards] if shards is not in range [1, 1000000000].
 //
-// Returns [ErrInvalidCapacity] if capacity is not in the range of int32
-// and greater than or equal to twice the number of shards.
+// Returns [ErrInvalidCapacity] if capacity is too small to be configured for the cache.
 func New[K comparable, V any](capacity int, opts ...LRUOption) (*PoolLRU[K, V], error) {
 	// build the config
 	cfg := lruConfig{
@@ -98,10 +95,10 @@ func WithMux[K comparable](cm mux.Mux[K]) LRUOption {
 // WithShards assigns the [PoolLRU] instance with num shards. Shards are separate instances
 // of [core.Shard] to prevent mutex locks from slowing down the cache.
 //
-// Returns [ErrInvalidShards] if num is not in range [1, 1073741823].
+// Returns [ErrInvalidShards] if num is not in range [1, 1000000000].
 func WithShards(num int) LRUOption {
 	return func(c *lruConfig) error {
-		if num < 1 || (num > (math.MaxInt32 >> 1)) {
+		if num < 1 || (num > 1e9) {
 			return ErrInvalidShards
 		}
 		c.shards = num

@@ -46,7 +46,6 @@ var actions = []int{
 }
 
 const fuzzBytes int = 2
-const fuzzKeys int = 4096
 
 // testCacheOp defines the structure of a unit test data.
 type testCacheOp struct {
