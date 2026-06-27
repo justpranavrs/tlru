@@ -2,13 +2,13 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package lrucore_test
+package core_test
 
 import (
 	"fmt"
 	"strconv"
 
-	"github.com/justpranavrs/tlru/lrucore"
+	"github.com/justpranavrs/tlru/core"
 )
 
 // Member is the type of the value stored in the cache.
@@ -17,12 +17,12 @@ type Member struct {
 	Email string
 }
 
-// ExampleCore shows a small example of how to initialize a Core instance and
+// ExampleLRU shows a small example of how to initialize a LRU instance and
 // do basic operations like Put, Size, Peek and Capacity.
-func ExampleCore() {
-	cache, err := lrucore.New[int, Member](256) // create a lru instance
+func ExampleLRU() {
+	cache, err := core.New[int, Member](256) // create a lru instance
 	if err != nil {
-		fmt.Printf("[ERROR] could not initialize Core instance: %v", err)
+		fmt.Printf("[ERROR] could not initialize LRU instance: %v", err)
 		return
 	}
 
@@ -54,9 +54,9 @@ func ExampleCore() {
 	// 256
 }
 
-// ExampleCore_GetMany shows an example on how GetMany works.
-func ExampleCore_GetMany() {
-	cache, err := lrucore.New[int, Member](256) // create a lru instance
+// ExampleLRU_GetMany shows an example on how GetMany works.
+func ExampleLRU_GetMany() {
+	cache, err := core.New[int, Member](256) // create a lru instance
 	if err != nil {
 		fmt.Printf("[ERROR] could not initialize LRU instance: %v", err)
 		return
@@ -108,9 +108,9 @@ func ExampleCore_GetMany() {
 	// [GET-MANY] Key 38 is not present in the cache
 }
 
-// ExampleCore_PutMany shows an example on how PutMany works.
-func ExampleCore_PutMany() {
-	cache, err := lrucore.New[int, Member](256) // create a lru instance
+// ExampleLRU_PutMany shows an example on how PutMany works.
+func ExampleLRU_PutMany() {
+	cache, err := core.New[int, Member](256) // create a lru instance
 	if err != nil {
 		fmt.Printf("[ERROR] could not initialize LRU instance: %v", err)
 		return

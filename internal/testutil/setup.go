@@ -7,7 +7,7 @@ package testutil
 import (
 	"math"
 
-	"github.com/justpranavrs/tlru/lrucore"
+	"github.com/justpranavrs/tlru/core"
 )
 
 // methods enum
@@ -26,7 +26,7 @@ const (
 )
 
 // CacheTest is a testing interface for the LRU instances.
-// For more details, refer [tlru.Cache]
+// For more details, refer [tlru.Pool]
 type CacheTest[K comparable, V any] interface {
 	Capacity() int
 	Delete(key K) (V, bool)
@@ -34,7 +34,7 @@ type CacheTest[K comparable, V any] interface {
 	Get(key K) (V, bool)
 	Peek(key K) (V, bool)
 	Put(key K, value V)
-	Upsert(key K, value V) (lrucore.UpsertState, V)
+	Upsert(key K, value V) (core.UpsertState, V)
 	Size() int
 }
 
@@ -46,7 +46,6 @@ var actions = []int{
 }
 
 const fuzzBytes int = 2
-const fuzzKeys int = 4096
 
 // testCacheOp defines the structure of a unit test data.
 type testCacheOp struct {

@@ -33,6 +33,3 @@ jobs:
       
       - name: "Race"
         run: "make race"
-
-      - name: "Bench"
-        run : "make bench"
