@@ -79,7 +79,7 @@ For a detailed walkthrough, refer [here](./LRU.md)
 ## Installation
 
 ```bash
-go get -u github.com/justpranavrs/tlru@v0.7.0
+go get -u github.com/justpranavrs/tlru@v0.7.1
 ```
 
 ## Examples

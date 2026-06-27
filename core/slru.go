@@ -190,6 +190,11 @@ func (s *slruBase[K, V]) addMisses() {
 	s.stats.Misses++
 }
 
+// applyOffsetIndex, offsets the index for protected.
+func (s *slruBase[K, V]) applyOffsetIndex(idx int32) int32 {
+	return int32(s.probationary.capacity) + idx
+}
+
 // clearState erases the entire cache's internal state
 func (s *slruBase[K, V]) clearState() {
 	s.probationary.clearState()
@@ -201,7 +206,7 @@ func (s *slruBase[K, V]) deleteWithIndex(idx int32) node[K, V] {
 	if idx < int32(s.probationary.capacity) {
 		return s.probationary.deleteWithIndex(idx)
 	} else {
-		return s.protected.deleteWithIndex(s.offsetIndex(idx))
+		return s.protected.deleteWithIndex(s.removeOffsetIndex(idx))
 	}
 }
 
@@ -223,7 +228,7 @@ func (s *slruBase[K, V]) getWithIndex(idx int32) V {
 	if idx < int32(s.probationary.capacity) {
 		return s.probationary.getWithIndex(idx)
 	} else {
-		return s.protected.getWithIndex(s.offsetIndex(idx))
+		return s.protected.getWithIndex(s.removeOffsetIndex(idx))
 	}
 }
 
@@ -254,7 +259,7 @@ func (s *slruBase[K, V]) makeRecent(idx int32) {
 	if idx < int32(s.probationary.capacity) {
 		s.probationary.makeRecent(idx)
 	} else {
-		s.protected.makeRecent(s.offsetIndex(idx))
+		s.protected.makeRecent(s.removeOffsetIndex(idx))
 	}
 }
 
@@ -263,7 +268,7 @@ func (s *slruBase[K, V]) peekWithIndex(idx int32) node[K, V] {
 	if idx < int32(s.probationary.capacity) {
 		return s.probationary.peekWithIndex(idx)
 	} else {
-		return s.protected.peekWithIndex(s.offsetIndex(idx))
+		return s.protected.peekWithIndex(s.removeOffsetIndex(idx))
 	}
 }
 
@@ -281,11 +286,6 @@ func (s *slruBase[K, V]) peekWithKey(key K) (V, bool) {
 	return s.protected.peekWithIndex(curr).value, true
 }
 
-// offsetIndex, offsets the index for protected.
-func (s *slruBase[K, V]) offsetIndex(idx int32) int32 {
-	return int32(s.probationary.capacity) + idx
-}
-
 // putWithKey adds or updates the cache value with key "key".
 // It also returns a value based on whether it was evicted or replaced.
 func (s *slruBase[K, V]) putWithKey(key K, value V) (UpsertState, V) {
@@ -300,6 +300,11 @@ func (s *slruBase[K, V]) putWithKey(key K, value V) (UpsertState, V) {
 	return UpsertReplace, val
 }
 
+// removeOffsetIndex, offsets the index for protected.
+func (s *slruBase[K, V]) removeOffsetIndex(idx int32) int32 {
+	return idx - int32(s.probationary.capacity)
+}
+
 // removeOldest evicts the oldest item in the cache.
 func (s *slruBase[K, V]) removeOldest() node[K, V] {
 	return s.probationary.removeOldest()
@@ -310,7 +315,7 @@ func (s *slruBase[K, V]) removeWithIndex(idx int32) {
 	if idx < int32(s.probationary.capacity) {
 		s.probationary.removeWithIndex(idx)
 	} else {
-		s.protected.removeWithIndex(s.offsetIndex(idx))
+		s.protected.removeWithIndex(s.removeOffsetIndex(idx))
 	}
 }
 
@@ -320,7 +325,7 @@ func (s *slruBase[K, V]) retrieveIndexWithKey(key K) (int32, bool) {
 	if !ok {
 		return s.probationary.retrieveIndexWithKey(key)
 	}
-	return s.offsetIndex(curr), true
+	return s.applyOffsetIndex(curr), true
 }
 
 // updateWithIndex updates the value of the provided index.
@@ -328,6 +333,6 @@ func (s *slruBase[K, V]) updateWithIndex(idx int32, value V) {
 	if idx < int32(s.probationary.capacity) {
 		s.probationary.updateWithIndex(idx, value)
 	} else {
-		s.protected.updateWithIndex(s.offsetIndex(idx), value)
+		s.protected.updateWithIndex(s.removeOffsetIndex(idx), value)
 	}
 }
