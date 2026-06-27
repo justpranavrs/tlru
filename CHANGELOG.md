@@ -20,6 +20,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * `tlru.TLRU` has been renamed to `tlru.PoolTLRU`.
 * `tlru.WithClock` and `tlru.WithSliding` now correctly return `TLRUOption`.
 * Added `golangci-lint.yaml` to the repository.
+* `AddAfterExpiration` has been renamed to `UpsertAddAfterExpiration`.
+* `AddNoEvict` has been renamed to `UpsertAddNoEviction`.
+* `AddOnEvict` has been renamed to `UpsertAddWithEviction`.
+* `Replace` has been renamed to `UpsertReplace`.
 
 ## [v0.6.1] - 2026-06-26
 Link : [Github Release](https://github.com/justpranavrs/tlru/releases/tag/v0.6.1)

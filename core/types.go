@@ -114,16 +114,16 @@ type Stats struct {
 type UpsertState uint8
 
 const (
-	// AddAfterExpiration is triggered when a new key was added after an expiration
+	// UpsertAddAfterExpiration is triggered when a new key was added after an expiration
 	// due to TTL (Time-To-Live).
-	AddAfterExpiration UpsertState = iota
+	UpsertAddAfterExpiration UpsertState = iota
 
-	// AddNoEvict is triggered when a new key was added without eviction.
-	AddNoEvict
+	// UpsertAddNoEviction is triggered when a new key was added without eviction.
+	UpsertAddNoEviction
 
-	// AddOnEvict is triggered when a new key was added after an eviction.
-	AddOnEvict
+	// UpsertAddWithEviction is triggered when a new key was added after an eviction.
+	UpsertAddWithEviction
 
-	// Replace is triggered when an older key's value was replaced.
-	Replace
+	// UpsertReplace is triggered when an older key's value was UpsertReplaced.
+	UpsertReplace
 )

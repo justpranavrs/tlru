@@ -202,10 +202,10 @@ func (l *tlruBase[K, V, B]) TTL(key K) (time.Duration, bool) {
 // It returns [UpsertState] based on how the internal state of the cache changed.
 //
 // It also returns a value based on [UpsertState]
-//   - [AddNoEvict] returns the zero value of V.
-//   - [AddOnEvict] returns the evicted value.
-//   - [Replace] returns the old value the key had.
-//   - [AddAfterExpiration] returns the expired value that was overwritten.
+//   - [UpsertAddNoEviction] returns the zero value of V.
+//   - [UpsertAddWithEviction] returns the evicted value.
+//   - [UpsertReplace] returns the old value the key had.
+//   - [UpsertAddAfterExpiration] returns the expired value that was overwritten.
 func (l *tlruBase[K, V, B]) Upsert(key K, value V) (UpsertState, V) {
 	return l.putWithKey(key, value, l.ttl)
 }
@@ -258,19 +258,19 @@ func (l *tlruBase[K, V, B]) peekWithKey(key K) (V, time.Duration, bool) {
 
 // putKey inserts the new key and value into the cache. It returns how
 // the internal state was updated and returns a value based on that state.
-// It also adds up expiration stat, if the replaced key was expired.
+// It also adds up expiration stat, if the UpsertReplaced key was expired.
 // It also takes in an argument ttl to set a custom expiration time.
 func (l *tlruBase[K, V, B]) putWithKey(key K, value V, ttl int64) (UpsertState, V) {
 	state, val := l.base.putWithKey(key, ttlValue[V]{
 		expiresAt: l.clock.Now() + ttl,
 		value:     value,
 	})
-	if state == Replace {
+	if state == UpsertReplace {
 		if val.expiresAt <= l.clock.Now() {
 			l.base.addExpirations()
-			return AddAfterExpiration, val.value
+			return UpsertAddAfterExpiration, val.value
 		}
-		return Replace, val.value
+		return UpsertReplace, val.value
 	}
 	return state, val.value
 }

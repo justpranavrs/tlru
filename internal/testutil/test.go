@@ -213,14 +213,14 @@ func FuzzCache(f *testing.F, cache CacheTest[int, User], mux mux.Mux[int], numOp
 						idx := evictKey(tick, shard, mux)
 						state[idx] = User{}
 						tick[idx] = -1
-						st = core.AddOnEvict
+						st = core.UpsertAddWithEviction
 					} else {
 						size[shard]++
 						totalSize++
-						st = core.AddNoEvict
+						st = core.UpsertAddNoEviction
 					}
 				} else {
-					st = core.Replace
+					st = core.UpsertReplace
 				}
 
 				if st != ste {

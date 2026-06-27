@@ -158,9 +158,9 @@ func (s *slruBase[K, V]) Stats() Stats {
 // It returns [UpsertState] based on how the internal state of the cache changed.
 //
 // It also returns a value based on [UpsertState]
-//   - [AddNoEvict] returns the zero value of V.
-//   - [AddOnEvict] returns the evicted value.
-//   - [Replace] returns the old value the key had.
+//   - [UpsertAddNoEviction] returns the zero value of V.
+//   - [UpsertAddWithEviction] returns the evicted value.
+//   - [UpsertReplace] returns the old value the key had.
 func (s *slruBase[K, V]) Upsert(key K, value V) (UpsertState, V) {
 	return s.putWithKey(key, value)
 }
@@ -297,7 +297,7 @@ func (s *slruBase[K, V]) putWithKey(key K, value V) (UpsertState, V) {
 
 	s.protected.updateWithIndex(curr, value)
 	s.protected.makeRecent(curr)
-	return Replace, val
+	return UpsertReplace, val
 }
 
 // removeOldest evicts the oldest item in the cache.

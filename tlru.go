@@ -106,7 +106,7 @@ func NewWithTTL[K comparable, V any](capacity int, ttl time.Duration, opts ...TL
 	}
 
 	return &PoolTLRU[K, V]{
-		tPool:  pool,
+		tPool: pool,
 		clock: cfg.clock,
 	}, nil
 }
@@ -135,4 +135,3 @@ func WithSliding() TLRUOption {
 	}
 	return tlruOpt(slideOpt)
 }
-

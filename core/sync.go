@@ -131,9 +131,9 @@ func (l *syncBase[K, V, S]) Stats() Stats {
 // It returns [UpsertState] based on how the internal state of the cache changed.
 //
 // It also returns a value based on [UpsertState]
-//   - [AddNoEvict] returns the zero value of V.
-//   - [AddOnEvict] returns the evicted value.
-//   - [Replace] returns the old value the key had.
+//   - [UpsertAddNoEviction] returns the zero value of V.
+//   - [UpsertAddWithEviction] returns the evicted value.
+//   - [UpsertReplace] returns the old value the key had.
 func (l *syncBase[K, V, S]) Upsert(key K, value V) (UpsertState, V) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -141,8 +141,11 @@ func (l *syncBase[K, V, S]) Upsert(key K, value V) (UpsertState, V) {
 	return l.lru.Upsert(key, value)
 }
 
-// syncBase is the mutex-locked implementation of [TTLShard].
+// tSyncBase is the mutex-locked implementation of [TTLShard].
 // It has thread-safe operations.
+//
+// tSyncBase does not implement syncBase because GoDoc doesn't recognize multiple
+// levels of struct embedding even though compiler can.
 type tSyncBase[K comparable, V any, T TTLShard[K, V]] struct {
 	// mu is a mutual extension lock.
 	mu sync.Mutex
@@ -330,10 +333,10 @@ func (t *tSyncBase[K, V, S]) TTL(key K) (time.Duration, bool) {
 // It returns [UpsertState] based on how the internal state of the cache changed.
 //
 // It also returns a value based on [UpsertState]
-//   - [AddNoEvict] returns the zero value of V.
-//   - [AddOnEvict] returns the evicted value.
-//   - [Replace] returns the old value the key had.
-//   - [AddAfterExpiration] returns the expired value that was overwritten.
+//   - [UpsertAddNoEviction] returns the zero value of V.
+//   - [UpsertAddWithEviction] returns the evicted value.
+//   - [UpsertReplace] returns the old value the key had.
+//   - [UpsertAddAfterExpiration] returns the expired value that was overwritten.
 func (t *tSyncBase[K, V, S]) Upsert(key K, value V) (UpsertState, V) {
 	t.mu.Lock()
 	defer t.mu.Unlock()

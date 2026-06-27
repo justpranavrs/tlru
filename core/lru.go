@@ -251,9 +251,9 @@ func (l *lruBase[K, V]) Stats() Stats {
 // It returns [UpsertState] based on how the internal state of the cache changed.
 //
 // It also returns a value based on [UpsertState]
-//   - [AddNoEvict] returns the zero value of V.
-//   - [AddOnEvict] returns the evicted value.
-//   - [Replace] returns the old value the key had.
+//   - [UpsertAddNoEviction] returns the zero value of V.
+//   - [UpsertAddWithEviction] returns the evicted value.
+//   - [UpsertReplace] returns the old value the key had.
 func (l *lruBase[K, V]) Upsert(key K, value V) (UpsertState, V) {
 	return l.putWithKey(key, value)
 }
@@ -386,17 +386,17 @@ func (l *lruBase[K, V]) putWithKey(key K, value V) (UpsertState, V) {
 			kv := l.removeOldest()
 
 			l.addKey(key, value)
-			return AddOnEvict, kv.value
+			return UpsertAddWithEviction, kv.value
 		} else {
 			l.addKey(key, value)
-			return AddNoEvict, *new(V)
+			return UpsertAddNoEviction, *new(V)
 		}
 	} else { // present in cache, just update values
 		val := l.peekWithIndex(curr).value
 
 		l.updateWithIndex(curr, value)
 		l.makeRecent(curr)
-		return Replace, val
+		return UpsertReplace, val
 	}
 }
 

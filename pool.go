@@ -220,9 +220,9 @@ func (l *pool[K, V, C]) Stats() core.Stats {
 // Returns a value [core.UpsertState].
 //
 // It also returns a value based on [core.UpsertState]
-//   - [core.AddNoEvict] returns the zero value of V.
-//   - [core.AddOnEvict] returns the evicted value.
-//   - [core.Replace] returns the old value the key had.
+//   - [core.UpsertAddNoEviction] returns the zero value of V.
+//   - [core.UpsertAddWithEviction] returns the evicted value.
+//   - [core.UpsertReplace] returns the old value the key had.
 func (l *pool[K, V, C]) Upsert(key K, value V) (core.UpsertState, V) {
 	shard := l.mux(key)
 	return l.shards[shard].Upsert(key, value)
