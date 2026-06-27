@@ -5,25 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-* `tlru/lrucore` has been renamed to `tlru/core`.
-* `tlru/lruclock` has been renamed to `tlru/clock`.
-* `tlru/core` has been refactored into lockless base types (`lruBase`, `tlruBase`, `slruBase`) and thread-safe `syncBase`/`tSyncBase` wrappers to enable algorithm-agnostic support.
-* `core.base` is an internal interface which acts as the most basic interface that can be wrapped with `syncBase` or (`tlruBase` and `tSyncBase`).
+## [v0.7.0] - 2026-06-28
+Link : [Github Release](https://github.com/justpranavrs/tlru/releases/tag/v0.7.0)
+
+## Added
 * `core.SLRU` and `tlru.PoolSLRU` have been added, supporting initialization via `core.NewSLRU` and `tlru.NewSLRU`.
 * `core.TSLRU` and `tlru.PoolTSLRU` have been added, supporting initialization via `core.NewSLRUWithTTL` and `tlru.NewSLRUWithTTL`.
+* `tlru/core` has been refactored into lockless base types (`lruBase`, `tlruBase`, `slruBase`) and thread-safe `syncBase`/`tSyncBase` wrappers to enable algorithm-agnostic support.
+* `core.base` is an internal interface which acts as the most basic interface that can be wrapped with `syncBase` or (`tlruBase` and `tSyncBase`).
 * New unit, race, and fuzz tests added for `core.SLRU` and `tlru.PoolSLRU`.
+* Added `golangci-lint.yaml` to the repository.
+
+## Changed
+* `tlru/lrucore` has been renamed to `tlru/core`.
+* `tlru/lruclock` has been renamed to `tlru/clock`.
 * `core.Core` has been renamed to `core.LRU`.
 * `core.TTLCore` has been renamed to `core.TLRU`.
 * `Cluster` has been renamed to `Pool`.
 * `tlru.LRU` has been renamed to `tlru.PoolLRU`.
 * `tlru.TLRU` has been renamed to `tlru.PoolTLRU`.
-* `tlru.WithClock` and `tlru.WithSliding` now correctly return `TLRUOption`.
-* Added `golangci-lint.yaml` to the repository.
 * `AddAfterExpiration` has been renamed to `UpsertAddAfterExpiration`.
 * `AddNoEvict` has been renamed to `UpsertAddNoEviction`.
 * `AddOnEvict` has been renamed to `UpsertAddWithEviction`.
 * `Replace` has been renamed to `UpsertReplace`.
+
+## Fixed
+* `tlru.WithClock` and `tlru.WithSliding` now correctly return `TLRUOption`.
 
 ## [v0.6.1] - 2026-06-26
 Link : [Github Release](https://github.com/justpranavrs/tlru/releases/tag/v0.6.1)
@@ -220,6 +227,7 @@ Link : [Github Release](https://github.com/justpranavrs/tlru/releases/tag/v0.1.0
 * `Examples` for GoDoc.
 
 ##
+* [0.7.0] : [View changes from 0.6.1 to 0.7.0](https://github.com/justpranavrs/tlru/compare/v0.6.1...v0.7.0) 
 * [0.6.1] : [View changes from 0.6.0 to 0.6.1](https://github.com/justpranavrs/tlru/compare/v0.6.0...v0.6.1) 
 * [0.6.0] : [View changes from 0.5.1 to 0.6.0](https://github.com/justpranavrs/tlru/compare/v0.5.1...v0.6.0) 
 * [0.5.1] : [View changes from 0.5.0 to 0.5.1](https://github.com/justpranavrs/tlru/compare/v0.5.0...v0.5.1) 
