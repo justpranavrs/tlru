@@ -9,53 +9,72 @@
 
 `tlru` is a high-performance, array-based, time-aware `LRU` cache for Go with **zero runtime allocations** and **zero dependencies**. It also supports utilizing multiple independent shards to eliminate lock contention and allow high-concurrency operations without bottlenecks. It supports the use of operations for batches and allows a lot of customization, without compromising performance.
 
+`tlru` supports `four` main caches:
+* Least Recently Used (LRU).
+* Time-Aware (LRU).
+* Segmented (LRU).
+* Time-Aware Segmented (LRU).
+
+`tlru`'s features:
+* Simple to Use API.
+* Fast.
+* Supports Generics.
+* Concurrent, Thread-Safe.
+* GC-Friendly / Zero Allocations.
+* Zero Dependencies.
+* Customization of the Sharding Hash Algorithm.
+* Batch Operations` for `tlru/core.
+* Has Both Absolute and Sliding TTL.
+* Customization of Background Clock for TTL.
+
 #### **Built with Go 1.24. Supports Go 1.24+**
 
 ## Table of Contents
 
-- [Introduction](#introduction)
-  - [How does core.LRU work?](#how-does-lrucorecore-work)
-  - [What is tlru.PoolLRU?](#what-is-tlrulru)
-  - [What is a mux.Mux?](#what-is-a-muxmux)
-- [Installation](#installation)
-- [Examples](#examples)
-  - [Basic LRU Cache](#basic-lru-cache)
-  - [Customization](#customization)
-- [Benchmarks](#benchmarks)
-- [License](#license)
+* [Introduction](#introduction)
+  * [How does core.LRU work?](#how-does-lrucorecore-work)
+  * [What is tlru.PoolLRU?](#what-is-tlrulru)
+  * [What is a mux.Mux?](#what-is-a-muxmux)
+* [Installation](#installation)
+* [Examples](#examples)
+  * [Basic LRU Cache](#basic-lru-cache)
+  * [Customization](#customization)
+* [Benchmarks](#benchmarks)
+* [License](#license)
 
 ## Introduction
 
 ### How does `core.LRU` work?
 
-- The `core.LRU` uses an array-based doubly linked list with int32 indices. This guarantees zero runtime allocations.
-- Each of these instances have a mutex lock to ensure safety in concurrent operations.
-- `core.LRU` has Go's support for generics.
-- It has optimized batch operations like `GetMany` and `PutMany` which reduce the locking contention during high workloads. This is only limited to `core.LRU`.
+* The `core.LRU` uses an array-based doubly linked list with int32 indices. This guarantees zero runtime allocations.
+* Each of these instances have a mutex lock to ensure safety in concurrent operations.
+* `core.LRU` has Go's support for generics.
+* It has optimized batch operations like `GetMany` and `PutMany` which reduce the locking contention during high workloads. This is only limited to `core.LRU`.
 
 ### What is `tlru.PoolLRU`?
 
-- While `core.LRU` is incredibly powerful, it struggles under heavy concurrent workloads. That is where `tlru.PoolLRU` shines. It uses a sharded architecture, consisting of many `core.LRU` instances. Since each Instance is protected by a mutex lock, `tlru.PoolLRU` doesn't need its own mutex lock.
-- It doesn't undergo a global based eviction. It uses a `shard-based local eviction` for its keys. The more the shards, the lesser the chance to evict the global least recently used key. To use the global based approach, use `core.LRU`.
-- It uses a `mux.Mux` to route the key to one of its shards.
-- It has two options:
-  - `WithShards`: It allows the user to customize the number of shards `tlru.PoolLRU` creates.
-  - `WithMux`: It allows the configuration of `mux.Mux`.
+* While `core.LRU` is incredibly powerful, it struggles under heavy concurrent workloads. That is where `tlru.PoolLRU` shines. It uses a sharded architecture, consisting of many `core.LRU` instances. Since each Instance is protected by a mutex lock, `tlru.PoolLRU` doesn't need its own mutex lock.
+* It doesn't undergo a global based eviction. It uses a `shard-based local eviction` for its keys. The more the shards, the lesser the chance to evict the global least recently used key. To use the global based approach, use `core.LRU`.
+* It uses a `mux.Mux` to route the key to one of its shards.
+* It has two options:
+  * `WithShards`: It allows the user to customize the number of shards `tlru.PoolLRU` creates.
+  * `WithMux`: It allows the configuration of `mux.Mux`.
 
 ### What is a `mux.Mux`?
-- A Mux is a router for the shards which uses a hashing algorithm to distribute the keys evenly across the instances.
-- The default hashing algorithms provided in this package are `FNV-1a`, `xxHash32` and Go's `hash/maphash`. The last one has support for `float`, `complex` and `struct` which the `FNV-1a` and `xxHash32` don't provide.
-- `WithMux` option allows the configuration by passing a custom hash function of type `mux.Mux` to the `LRU`.
+* A Mux is a router for the shards which uses a hashing algorithm to distribute the keys evenly across the instances.
+* The default hashing algorithms provided in this package are `FNV-1a`, `xxHash32` and Go's `hash/maphash`. The last one has support for `float`, `complex` and `struct` which the `FNV-1a` and `xxHash32` don't provide.
+* `WithMux` option allows the configuration by passing a custom hash function of type `mux.Mux` to the `LRU`.
 
 ### How does `TTL` work?
-- `tlru.PoolTLRU` and `core.TLRU` are TTL implementations of `tlru.PoolLRU` and `core.LRU` respectively. They use `Absolute TTL`. The timestamp of a `key` in the cache is updated only on `Put` operations and never on `Get` operations.
-- `WithSliding` on these instances enable `Sliding TTL` instead of the default `Absolute TTL`. `Sliding TTL` ensures timestamp updates on `Get` and `Peek` operations too.
+* `tlru.PoolTLRU` and `core.TLRU` are TTL implementations of `tlru.PoolLRU` and `core.LRU` respectively. They use `Absolute TTL`. The timestamp of a `key` in the cache is updated only on `Put` operations and never on `Get` operations.
+* `WithSliding` on these instances enable `Sliding TTL` instead of the default `Absolute TTL`. `Sliding TTL` ensures timestamp updates on `Get` and `Peek` operations too.
+* `TTL` works on Lazy Eviction. It is only evicted when a `Get` or `Peek` operation is made to it.
 
 For a detailed walkthrough, refer [here](./LRU.md)
 
 ### What is `SLRU`?
-- `tlru.PoolSLRU` and `core.SLRU` are implementations of `Segmented` Least Recently Used Cache. They use Two LRUs, Probationary and Protected to avoid `Sequential Scan` Pollution. They offer better hit rates than `LRU` with almost the same speeds. Check the [benchmarks](#benchmarks) below for comparisons.
-- SLRU also has `tlru.PoolTSLRU` and `core.TSLRU` which supports `TTL` for `SLRU`.
+* `tlru.PoolSLRU` and `core.SLRU` are implementations of `Segmented` Least Recently Used Cache. They use Two LRUs, Probationary and Protected to avoid `Sequential Scan` Pollution. They offer better hit rates than `LRU` with almost the same speeds. Check the [benchmarks](#benchmarks) below for comparisons.
+* SLRU also has `tlru.PoolTSLRU` and `core.TSLRU` which supports `TTL` for `SLRU`.
 
 ## Installation
 
@@ -138,8 +157,8 @@ cache, err := tlru.New[int, string](25600, tlru.WithShards(64))
 
 ### Environment
 
-- os: archlinux/amd64
-- cpu: AMD Ryzen 7 260 w/ Radeon 780M Graphics
+* os: archlinux/amd64
+* cpu: AMD Ryzen 7 260 w/ Radeon 780M Graphics
 
 ### Performance
 
