@@ -25,14 +25,14 @@ type PoolSLRU[K comparable, V any] struct {
 // many instances of [core.TSLRU] and works based on [PoolSLRU].
 // It manages a unified clock for all the separate instances.
 type PoolTSLRU[K comparable, V any] struct {
-	pool[K, V, *core.TSLRU[K, V]]
+	tPool[K, V, *core.TSLRU[K, V]]
 	clock *clock.Clock
 }
 
 // NewSLRU creates a [PoolSLRU] instance with the given capacity and options. It creates
 // the required [core.SLRU] instances, initiates the [mux.Mux] for shard routing.
 // It defaults to the Mux with hash/maphash algorithm. Check `tlru/mux` package for alternatives.
-// It takes in a ratio which declares the ratio of probationary capacity
+// It takes in a ratio(0-100) which declares the ratio of probationary capacity
 // to the capacity. It is in Percentage.
 //
 // Example : If the ratio is 5 and the capacity is 1000,
@@ -84,13 +84,13 @@ func NewSLRU[K comparable, V any](capacity int, ratio int, opts ...LRUOption) (*
 	}, nil
 }
 
-// NewTSLRU creates a [PoolTSLRU] instance with the given capacity and options. It creates
+// NewSLRUWithTTL creates a [PoolTSLRU] instance with the given capacity and options. It creates
 // the required [core.TSLRU] instances, initiates the [mux.Mux] for shard routing.
 //
 // Refer [NewSLRU] for more details.
 //
 // Refer [NewWithTTL] for more details.
-func NewTSLRU[K comparable, V any](capacity int, ratio int, ttl time.Duration, opts ...TLRUOption) (*PoolTSLRU[K, V], error) {
+func NewSLRUWithTTL[K comparable, V any](capacity int, ratio int, ttl time.Duration, opts ...TLRUOption) (*PoolTSLRU[K, V], error) {
 	// build the config
 	cfg := tlruConfig{
 		lruConfig: lruConfig{
@@ -131,13 +131,13 @@ func NewTSLRU[K comparable, V any](capacity int, ratio int, ttl time.Duration, o
 		}
 		return core.NewSLRUWithTTL[K, V](cap, ratio, ttl, core.WithClock(cfg.clock))
 	}
-	pool, err := assemble(capacity, cfg.shards, hash, createShard)
+	pool, err := assembleWithTTL(capacity, cfg.shards, hash, cfg.clock, cfg.sliding, createShard)
 	if err != nil {
 		return nil, err
 	}
 
 	return &PoolTSLRU[K, V]{
-		pool:  pool,
+		tPool: pool,
 		clock: cfg.clock,
 	}, nil
 }

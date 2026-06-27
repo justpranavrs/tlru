@@ -61,7 +61,7 @@ type Pool[K comparable, V any] interface {
 	Upsert(key K, value V) (core.UpsertState, V)
 }
 
-// pool is the internal sharding container used by [PoolLRU] and [PoolTLRU].
+// pool is the internal sharding container used by [PoolLRU] and [PoolSLRU].
 // It handles routing via [mux.Mux] and maintains the shards.
 type pool[K comparable, V any, C core.Shard[K, V]] struct {
 	// capacity represents the maximum allocated space for the LRU cache.
@@ -76,13 +76,13 @@ type pool[K comparable, V any, C core.Shard[K, V]] struct {
 }
 
 var (
-	// ErrInvalidCapacity is returned by [New] when an invalid cache capacity is passed as argument.
-	ErrInvalidCapacity = errors.New("invalid LRU cache capacity: must be in the range of int32 and greater than or equal to twice the number of shards")
+	// ErrInvalidCapacity is returned by constructors when the maximum cache capacity is too small for the configured for the cache.
+	ErrInvalidCapacity = errors.New("invalid cache capacity: total capacity is too small for the configured for the cache")
 
 	// ErrInvalidMuxKey is returned by constructors when mux does not have the same key type as the cache.
 	ErrInvalidMuxKey = errors.New("invalid mux for cache: mux does not have the same key type as the cache")
 
-	// ErrInvalidShards is returned by [New] when an invalid number of shards is passed using WithShards.
+	// ErrInvalidShards is returned by constructors when an invalid number of shards is passed using WithShards.
 	ErrInvalidShards = errors.New("invalid number of shards: must be in range [1, 1000000000]")
 )
 

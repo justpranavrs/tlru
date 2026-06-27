@@ -4,6 +4,8 @@
 
 package core
 
+// slruBase is the basic implementation of Segmented LRU.
+// It uses two [lruBase], a warm and a cold region to avoid cache pollution.
 type slruBase[K comparable, V any] struct {
 	// probationary is the cold region of the slru cache.
 	probationary *lruBase[K, V]
@@ -15,6 +17,7 @@ type slruBase[K comparable, V any] struct {
 	stats Stats
 }
 
+// assembleSLRU creates an instance of [slruBase] using the given capacity and ratio.
 func assembleSLRU[K comparable, V any](capacity int, ratio int) (*slruBase[K, V], error) {
 	if ratio < 0 || ratio > 100 {
 		return nil, ErrInvalidSLRURatio
@@ -37,19 +40,23 @@ func assembleSLRU[K comparable, V any](capacity int, ratio int) (*slruBase[K, V]
 	}, nil
 }
 
+// Capacity returns the maximum allocated capacity of the SLRU cache.
 func (s *slruBase[K, V]) Capacity() int {
 	return s.probationary.capacity + s.protected.capacity
 }
 
+// Contains checks whether the key is present in the Cache.
 func (s *slruBase[K, V]) Contains(key K) bool {
 	_, ok := s.protected.peekWithKey(key)
 	if !ok {
-		_, ok := s.protected.peekWithKey(key)
+		_, ok := s.probationary.peekWithKey(key)
 		return ok
 	}
 	return true
 }
 
+// Delete removes the key from the cache and returns the evicted value.
+// It returns false if the key was not found in the cache.
 func (s *slruBase[K, V]) Delete(key K) (V, bool) {
 	val, ok := s.protected.deleteWithKey(key)
 	if !ok {
@@ -58,15 +65,25 @@ func (s *slruBase[K, V]) Delete(key K) (V, bool) {
 	return val, true
 }
 
+// Flush clears the SLRU cache of all its keys and values.
 func (s *slruBase[K, V]) Flush() {
 	s.protected.clearState()
 	s.probationary.clearState()
 }
 
+// Get retrieves the cache value using key.
+// It returns false if the key is not found.
 func (s *slruBase[K, V]) Get(key K) (V, bool) {
 	return s.getWithKey(key)
 }
 
+// GetMany allows retrieval of multiple keys at the same time.
+//
+// The keys, values and exists array should be of the same size. If not they are not of same size,
+// [ErrInvalidBatchSize] is returned.
+//
+// The operation modifies values and exists in-place. If a key is not present in the cache,
+// the corresponding index in exists is set to false and leaves the value at that index unchanged.
 func (s *slruBase[K, V]) GetMany(keys []K, values []V, exists []bool) error {
 	if (len(keys) != len(values)) || (len(keys) != len(exists)) {
 		return ErrInvalidBatchSize
@@ -82,6 +99,9 @@ func (s *slruBase[K, V]) GetMany(keys []K, values []V, exists []bool) error {
 	return nil
 }
 
+// Peek retrieves the cache value without updating it
+// to be the most recently used.
+// It returns false if the key is not found.
 func (s *slruBase[K, V]) Peek(key K) (V, bool) {
 	val, ok := s.protected.peekWithKey(key)
 	if !ok {
@@ -90,10 +110,17 @@ func (s *slruBase[K, V]) Peek(key K) (V, bool) {
 	return val, true
 }
 
+// Put adds a new value to the cache with the given key.
+// See [SLRU.Upsert] for detailed information on cache state transitions.
 func (s *slruBase[K, V]) Put(key K, value V) {
 	s.putWithKey(key, value)
 }
 
+// PutMany allows the addition of multiple key-value pairs at the
+// same time.
+//
+// The keys and values array should be of the same size. If not they are not of same size,
+// [ErrInvalidBatchSize] is returned.
 func (s *slruBase[K, V]) PutMany(keys []K, values []V) error {
 	if len(keys) != len(values) {
 		return ErrInvalidBatchSize
@@ -105,16 +132,19 @@ func (s *slruBase[K, V]) PutMany(keys []K, values []V) error {
 	return nil
 }
 
+// ResetStats resets the stats of the LRU cache.
 func (s *slruBase[K, V]) ResetStats() {
 	s.stats = Stats{}
 	s.probationary.stats = Stats{}
 	s.protected.stats = Stats{}
 }
 
+// Size returns the current size of the LRU cache.
 func (s *slruBase[K, V]) Size() int {
 	return len(s.probationary.hash) + len(s.protected.hash)
 }
 
+// Stats return the current stats of the LRU cache.
 func (s *slruBase[K, V]) Stats() Stats {
 	return Stats{
 		Hits:        s.stats.Hits + s.probationary.stats.Hits + s.protected.stats.Hits,
@@ -124,6 +154,13 @@ func (s *slruBase[K, V]) Stats() Stats {
 	}
 }
 
+// Upsert adds a new value to the cache with the given key.
+// It returns [UpsertState] based on how the internal state of the cache changed.
+//
+// It also returns a value based on [UpsertState]
+//   - [AddNoEvict] returns the zero value of V.
+//   - [AddOnEvict] returns the evicted value.
+//   - [Replace] returns the old value the key had.
 func (s *slruBase[K, V]) Upsert(key K, value V) (UpsertState, V) {
 	return s.putWithKey(key, value)
 }
@@ -172,7 +209,7 @@ func (s *slruBase[K, V]) deleteWithIndex(idx int32) node[K, V] {
 func (s *slruBase[K, V]) deleteWithKey(key K) (V, bool) {
 	curr, ok := s.protected.retrieveIndexWithKey(key)
 	if !ok {
-		curr, ok := s.protected.retrieveIndexWithKey(key)
+		curr, ok := s.probationary.retrieveIndexWithKey(key)
 		if !ok {
 			return *new(V), false
 		}
@@ -235,7 +272,7 @@ func (s *slruBase[K, V]) peekWithIndex(idx int32) node[K, V] {
 func (s *slruBase[K, V]) peekWithKey(key K) (V, bool) {
 	curr, ok := s.protected.retrieveIndexWithKey(key)
 	if !ok {
-		curr, ok := s.protected.retrieveIndexWithKey(key)
+		curr, ok := s.probationary.retrieveIndexWithKey(key)
 		if !ok {
 			return *new(V), false
 		}

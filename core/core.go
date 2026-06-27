@@ -80,7 +80,7 @@ func New[K comparable, V any](capacity int) (*LRU[K, V], error) {
 }
 
 // NewSLRU creates an instance of [SLRU] using the given capacity.
-// It takes in a ratio which declares the ratio of probationary capacity
+// It takes in a ratio(0-100) which declares the ratio of probationary capacity
 // to the capacity. It is in Percentage.
 //
 // Example : If the ratio is 5 and the capacity is 1000,

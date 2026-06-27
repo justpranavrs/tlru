@@ -16,7 +16,7 @@ import (
 // many instances of [core.TLRU] and works based on [PoolLRU].
 // It manages a unified clock for all the separate instances.
 type PoolTLRU[K comparable, V any] struct {
-	pool[K, V, *core.TLRU[K, V]]
+	tPool[K, V, *core.TLRU[K, V]]
 	clock *clock.Clock
 }
 
@@ -100,13 +100,13 @@ func NewWithTTL[K comparable, V any](capacity int, ttl time.Duration, opts ...TL
 		}
 		return core.NewWithTTL[K, V](cap, ttl, core.WithClock(cfg.clock))
 	}
-	pool, err := assemble(capacity, cfg.shards, hash, createShard)
+	pool, err := assembleWithTTL(capacity, cfg.shards, hash, cfg.clock, cfg.sliding, createShard)
 	if err != nil {
 		return nil, err
 	}
 
 	return &PoolTLRU[K, V]{
-		pool:  pool,
+		tPool:  pool,
 		clock: cfg.clock,
 	}, nil
 }
@@ -136,65 +136,3 @@ func WithSliding() TLRUOption {
 	return tlruOpt(slideOpt)
 }
 
-// Close safely closes the background clock when TTL is enabled on the cache.
-func (l *PoolTLRU[K, V]) Close() {
-	if l.clock != nil {
-		l.clock.Stop()
-	}
-}
-
-// Check [PoolTLRU.Get] on how Get works.
-// It also returns the remaining TTL in the key if it was found in the cache.
-func (l *PoolTLRU[K, V]) GetWithTTL(key K) (V, time.Duration, bool) {
-	shard := l.mux(key)
-	return l.pool.shards[shard].GetWithTTL(key)
-}
-
-// Check [PoolTLRU.Peek] on how Peek works.
-// It also returns the remaining TTL in the key if it was found in the cache.
-func (l *PoolTLRU[K, V]) PeekWithTTL(key K) (V, time.Duration, bool) {
-	shard := l.mux(key)
-	return l.pool.shards[shard].PeekWithTTL(key)
-}
-
-// PutWithTTL adds a new value to the cache with the given key and the provided ttl value.
-//
-// The ttl value is rounded off in terms of its internal clock ticks.
-//
-// Check [PoolTLRU.Put] on how Put works.
-func (l *PoolTLRU[K, V]) PutWithTTL(key K, value V, ttl time.Duration) {
-	shard := l.mux(key)
-	l.pool.shards[shard].PutWithTTL(key, value, ttl)
-}
-
-// Refresh resets the TTL of an existing key using the default ttl.
-// It returns false if the key could not be found.
-func (l *PoolTLRU[K, V]) Refresh(key K) bool {
-	shard := l.mux(key)
-	return l.pool.shards[shard].Refresh(key)
-}
-
-// SetTTL resets the TTL of an existing key using the provided ttl value.
-// It returns false if the key could not be found.
-//
-// The ttl value is rounded off in terms of its internal clock ticks.
-func (l *PoolTLRU[K, V]) SetTTL(key K, ttl time.Duration) bool {
-	shard := l.mux(key)
-	return l.pool.shards[shard].SetTTL(key, ttl)
-}
-
-// TTL returns the remaining TTL for the key.
-func (l *PoolTLRU[K, V]) TTL(key K) (time.Duration, bool) {
-	shard := l.mux(key)
-	return l.pool.shards[shard].TTL(key)
-}
-
-// UpsertWithTTL adds a new value to the cache with the given key and the provided ttl value.
-//
-// The ttl value is rounded off in terms of its internal clock ticks.
-//
-// Check [PoolTLRU.Upsert] on how Upsert works.
-func (l *PoolTLRU[K, V]) UpsertWithTTL(key K, value V, ttl time.Duration) (core.UpsertState, V) {
-	shard := l.mux(key)
-	return l.pool.shards[shard].UpsertWithTTL(key, value, ttl)
-}

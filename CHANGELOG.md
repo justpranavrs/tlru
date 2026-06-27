@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * `tlru/core` has been refactored into lockless base types (`lruBase`, `tlruBase`, `slruBase`) and thread-safe `syncBase`/`tSyncBase` wrappers to enable algorithm-agnostic support.
 * `core.base` is an internal interface which acts as the most basic interface that can be wrapped with `syncBase` or (`tlruBase` and `tSyncBase`).
 * `core.SLRU` and `tlru.PoolSLRU` have been added, supporting initialization via `core.NewSLRU` and `tlru.NewSLRU`.
-* `core.TSLRU` and `tlru.PoolTSLRU` have been added, supporting initialization via `core.NewTSLRU` and `tlru.NewTSLRU`.
+* `core.TSLRU` and `tlru.PoolTSLRU` have been added, supporting initialization via `core.NewSLRUWithTTL` and `tlru.NewSLRUWithTTL`.
 * New unit, race, and fuzz tests added for `core.SLRU` and `tlru.PoolSLRU`.
 * `core.Core` has been renamed to `core.LRU`.
 * `core.TTLCore` has been renamed to `core.TLRU`.

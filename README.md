@@ -194,7 +194,7 @@ cache, err := tlru.New[int, string](25600, tlru.WithShards(64))
   Mixed_Parallel-16                   77106094       15.68 ns/op       0 B/op       0 allocs/op
 ```
 
-* `tlru.PoolSLRU` with `64` shards:
+* `tlru.PoolSLRU` with `64` shards: (20% Probationary, 80% Protected)
 ```text
 [ Zipf Data ]
   Puts-16                             20233304       59.34 ns/op       0 B/op       0 allocs/op
@@ -211,7 +211,7 @@ cache, err := tlru.New[int, string](25600, tlru.WithShards(64))
   Mixed_Parallel-16                   58764945       18.99 ns/op       0 B/op       0 allocs/op
 ```
 
-* `tlru.PoolSLRU` with `128` shards (Default):
+* `tlru.PoolSLRU` with `128` shards (Default):  (20% Probationary, 80% Protected)
 ```text
 [ Zipf Data ]
   Puts-16                             19188867       61.47 ns/op       0 B/op       0 allocs/op
@@ -228,7 +228,7 @@ cache, err := tlru.New[int, string](25600, tlru.WithShards(64))
   Mixed_Parallel-16                   73351990       16.57 ns/op       0 B/op       0 allocs/op
 ```
 
-* `tlru.PoolSLRU` with `256` shards:
+* `tlru.PoolSLRU` with `256` shards: (20% Probationary, 80% Protected)
 ```text
 [ Zipf Data ]
   Puts-16                             19855791       59.43 ns/op       0 B/op       0 allocs/op
@@ -262,7 +262,7 @@ cache, err := tlru.New[int, string](25600, tlru.WithShards(64))
   Mixed_Parallel-16                   10230447      116.80 ns/op       0 B/op       0 allocs/op
 ```
 
-* `core.SLRU` (Single-Threaded):
+* `core.SLRU` (Single-Threaded): (20% Probationary, 80% Protected)
 ```text
 [ Zipf Data ]
   Puts-16                             24416108       48.75 ns/op       0 B/op       0 allocs/op

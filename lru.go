@@ -16,7 +16,7 @@ const DefaultShards int = 128
 // PoolLRU is the better implementation of [core.LRU]. It is a
 // 'Least Recently Used' cache with many instances of [core.LRU]
 // to prevent mutual extension locks on a single instance.
-// It has thread-safe but not a completely lock free operations.
+// It has thread-safe operations.
 //
 // It doesn't work on the standard principle of LRU, rather when the mux
 // routes it to a [core.LRU] instance. LRU works on shard-local based eviction
