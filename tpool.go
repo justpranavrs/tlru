@@ -108,10 +108,15 @@ func assembleWithTTL[K comparable, V any, C core.TTLShard[K, V]](capacity int, n
 	}, nil
 }
 
-// Close safely closes the background clock when TTL is enabled on the cache.
+// Close safely closes the background clock when TTL is enabled and also frees up 
+// memory on the cache.
 func (l *tPool[K, V, C]) Close() {
 	if l.clock != nil {
 		l.clock.Stop()
+	}
+
+	for _, s := range l.shards {
+		s.Close()
 	}
 }
 

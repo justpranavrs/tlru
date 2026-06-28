@@ -91,7 +91,7 @@ func New[K comparable, V any](capacity int) (*LRU[K, V], error) {
 //
 // Returns an [ErrInvalidSLRURatio] if the ratio is not between 0 and 100.
 func NewSLRU[K comparable, V any](capacity int, ratio int) (*SLRU[K, V], error) {
-	lru, err := assembleSLRU[K, V](capacity, ratio)
+	lru, err := assembleSLRU[K, V](capacity, ratio, PromotionGet)
 	if err != nil {
 		return nil, err
 	}
@@ -171,7 +171,7 @@ func NewSLRUWithTTL[K comparable, V any](capacity int, ratio int, ttl time.Durat
 		_ = clk.Start()
 	}
 
-	lru, err := assembleSLRU[K, ttlValue[V]](capacity, ratio)
+	lru, err := assembleSLRU[K, ttlValue[V]](capacity, ratio, PromotionGet)
 	if err != nil {
 		return nil, err
 	}

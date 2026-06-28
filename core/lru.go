@@ -158,6 +158,12 @@ func (l *lruBase[K, V]) Capacity() int {
 	return l.capacity
 }
 
+// Close safely frees up the memory from the cache.
+func (l *lruBase[K, V]) Close() {
+	l.stats = Stats{}
+	l.clearState()
+}
+
 // Contains checks whether the key is present in the Cache.
 func (l *lruBase[K, V]) Contains(key K) bool {
 	_, ok := l.peekWithKey(key)

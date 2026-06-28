@@ -13,12 +13,16 @@ type slruBase[K comparable, V any] struct {
 	// protected is the warm region of slru cache.
 	protected *lruBase[K, V]
 
+	// promotion represent the type of promotion from
+	// probationary to protected.
+	promotion PromotionType
+
 	// stats represents the metrics added by its private methods
 	stats Stats
 }
 
 // assembleSLRU creates an instance of [slruBase] using the given capacity and ratio.
-func assembleSLRU[K comparable, V any](capacity int, ratio int) (*slruBase[K, V], error) {
+func assembleSLRU[K comparable, V any](capacity int, ratio int, promotion PromotionType) (*slruBase[K, V], error) {
 	if ratio < 0 || ratio > 100 {
 		return nil, ErrInvalidSLRURatio
 	}
@@ -37,12 +41,22 @@ func assembleSLRU[K comparable, V any](capacity int, ratio int) (*slruBase[K, V]
 	return &slruBase[K, V]{
 		probationary: prob,
 		protected:    prot,
+		promotion: promotion,
 	}, nil
 }
 
 // Capacity returns the maximum allocated capacity of the SLRU cache.
 func (s *slruBase[K, V]) Capacity() int {
 	return s.probationary.capacity + s.protected.capacity
+}
+
+// Close safely terminates the instance and frees up the memory.
+func (s *slruBase[K, V]) Close() {
+	s.protected.clearState()
+	s.protected.stats = Stats{}
+
+	s.probationary.clearState()
+	s.probationary.stats = Stats{}
 }
 
 // Contains checks whether the key is present in the Cache.
@@ -298,6 +312,9 @@ func (s *slruBase[K, V]) promoteKey(key K, value V) {
 func (s *slruBase[K, V]) putWithKey(key K, value V) (UpsertState, V) {
 	curr, ok := s.protected.retrieveIndexWithKey(key)
 	if !ok {
+		if s.promotion == PromotionGet {
+			return s.probationary.putWithKey(key, value)
+		}
 		curr, exists := s.probationary.retrieveIndexWithKey(key)
 		if !exists {
 			return s.probationary.putNewKey(key, value)
