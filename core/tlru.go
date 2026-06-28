@@ -54,11 +54,13 @@ func (l *tlruBase[K, V, B]) Capacity() int {
 	return l.base.Capacity()
 }
 
-// Close safely closes the background clock when TTL is enabled on the cache.
+// Close safely closes the background clock when TTL is enabled and also frees up 
+// memory on the cache.
 func (l *tlruBase[K, V, B]) Close() {
 	if l.clock != nil {
 		l.clock.Stop()
 	}
+	l.base.Close()
 }
 
 // Contains checks whether the key is present in the Cache.

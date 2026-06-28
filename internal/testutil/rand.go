@@ -48,6 +48,9 @@ func GenerateZipfData(keys int, numOps int) []CacheOp {
 			},
 		}
 	}
+	rand.Shuffle(numOps, func(i, j int) {
+		ops[i], ops[j] = ops[j], ops[i]
+	})
 	return ops
 }
 

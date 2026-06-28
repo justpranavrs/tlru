@@ -17,6 +17,9 @@ type Shard[K comparable, V any] interface {
 	// Capacity returns the maximum allocated capacity of the LRU cache.
 	Capacity() int
 
+	// Close safely terminates the Cache instance.
+	Close()
+
 	// Contains checks whether the key is present in the Cache.
 	Contains(key K) bool
 
@@ -127,3 +130,15 @@ const (
 	// UpsertReplace is triggered when an older key's value was UpsertReplaced.
 	UpsertReplace
 )
+
+// PromotionType represents the type of Promotion for SLRU.
+type PromotionType uint8
+
+const (
+	// PromotionGet only promotes the key from probationary to protected on Get operations.
+	PromotionGet PromotionType = iota
+
+	// PromotionGetAndPut promotes the key from probationary to protected on Get and Put operations.
+	PromotionGetAndPut
+)
+

@@ -22,6 +22,9 @@ type Pool[K comparable, V any] interface {
 	// Capacity returns the maximum allocated capacity of the LRU cache.
 	Capacity() int
 
+	// Close safely terminates the Pool instance.
+	Close()
+
 	// Contains checks whether the key is present in the LRU cache.
 	Contains(key K) bool
 
@@ -120,6 +123,13 @@ func assemble[K comparable, V any, C core.Shard[K, V]](capacity int, nShards int
 // across all sharded instances of [core.Shard].
 func (l *pool[K, V, C]) Capacity() int {
 	return l.capacity
+}
+
+// Close safely terminates the Pool instance and frees up the memory.
+func (l *pool[K, V, C]) Close() {
+	for _, c := range l.shards {
+		c.Close()
+	}
 }
 
 // Contains checks whether the key is present in the LRU cache.

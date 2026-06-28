@@ -24,6 +24,11 @@ func (l *syncBase[K, V, S]) Capacity() int {
 	return l.lru.Capacity()
 }
 
+// Close safely terminates the cache instance and frees up the memory.
+func (l *syncBase[K, V, S]) Close() {
+	l.lru.Close()
+}
+
 // Contains checks whether the key is present in the Cache.
 func (l *syncBase[K, V, S]) Contains(key K) bool {
 	l.mu.Lock()

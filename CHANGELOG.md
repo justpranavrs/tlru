@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.7.2] - 2026-06-28
+Link : [Github Release](https://github.com/justpranavrs/tlru/releases/tag/v0.7.2)
+
+### Added
+- `core.Shard.Close` which safely frees up the memory of the cache.
+- Add tests for `core.TLRU` and `tlru.TLRU`.
+
+### Fixed
+- `core.slruBase` does not promote during a `Put` operation if accessed again.
+
 ## [v0.7.1] - 2026-06-28
 Link : [Github Release](https://github.com/justpranavrs/tlru/releases/tag/v0.7.1)
 
@@ -233,6 +243,7 @@ Link : [Github Release](https://github.com/justpranavrs/tlru/releases/tag/v0.1.0
 * `Examples` for GoDoc.
 
 ##
+* [0.7.2] : [View changes from 0.7.1 to 0.7.2](https://github.com/justpranavrs/tlru/compare/v0.7.1...v0.7.2) 
 * [0.7.1] : [View changes from 0.7.0 to 0.7.1](https://github.com/justpranavrs/tlru/compare/v0.7.0...v0.7.1) 
 * [0.7.0] : [View changes from 0.6.1 to 0.7.0](https://github.com/justpranavrs/tlru/compare/v0.6.1...v0.7.0) 
 * [0.6.1] : [View changes from 0.6.0 to 0.6.1](https://github.com/justpranavrs/tlru/compare/v0.6.0...v0.6.1) 
