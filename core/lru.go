@@ -377,26 +377,37 @@ func (l *lruBase[K, V]) peekWithKey(key K) (V, bool) {
 	return l.peekWithIndex(curr).value, true
 }
 
+// putNewKey adds a new key to the cache and evicts a key if necessary.
+func (l *lruBase[K, V]) putNewKey(key K, value V) (UpsertState, V) {
+	if len(l.hash) == l.capacity {
+		kv := l.removeOldest()
+
+		l.addKey(key, value)
+		return UpsertAddWithEviction, kv.value
+	} else {
+		l.addKey(key, value)
+		return UpsertAddNoEviction, *new(V)
+	}
+}
+
+// putOldKey replaces an old value in the cache for the key and
+// pushes it to the mru.
+func (l *lruBase[K, V]) putOldKey(idx int32, value V) (UpsertState, V) {
+	val := l.peekWithIndex(idx).value
+
+	l.updateWithIndex(idx, value)
+	l.makeRecent(idx)
+	return UpsertReplace, val
+}
+
 // putWithKey adds or updates the cache value with key "key".
 // It also returns a value based on whether it was evicted or replaced.
 func (l *lruBase[K, V]) putWithKey(key K, value V) (UpsertState, V) {
 	curr, ok := l.hash[key]
 	if !ok { // not present in cache
-		if len(l.hash) == l.capacity {
-			kv := l.removeOldest()
-
-			l.addKey(key, value)
-			return UpsertAddWithEviction, kv.value
-		} else {
-			l.addKey(key, value)
-			return UpsertAddNoEviction, *new(V)
-		}
+		return l.putNewKey(key, value)
 	} else { // present in cache, just update values
-		val := l.peekWithIndex(curr).value
-
-		l.updateWithIndex(curr, value)
-		l.makeRecent(curr)
-		return UpsertReplace, val
+		return l.putOldKey(curr, value)
 	}
 }
 

@@ -244,12 +244,8 @@ func (s *slruBase[K, V]) getWithKey(key K) (V, bool) {
 		}
 		s.probationary.addHits()
 
-		val = s.probationary.deleteWithIndex(curr).value   // this won't trigger an eviction
-		if len(s.protected.hash) == s.protected.capacity { // demoted key
-			kv := s.protected.removeOldest() // this will trigger an eviction in protected
-			s.probationary.addKey(kv.key, kv.value)
-		}
-		s.protected.addKey(key, val) // promoted key
+		val = s.probationary.deleteWithIndex(curr).value // this won't trigger an eviction
+		s.promoteKey(key, val)
 	}
 	return val, true
 }
@@ -286,18 +282,31 @@ func (s *slruBase[K, V]) peekWithKey(key K) (V, bool) {
 	return s.protected.peekWithIndex(curr).value, true
 }
 
+// promoteKey promotes a key from probationary to protected and demotes
+// a key if necessary. It ensures that the probationary key is already deleted
+// to have space for the protected key.
+func (s *slruBase[K, V]) promoteKey(key K, value V) {
+	if len(s.protected.hash) == s.protected.capacity { // demoted key
+		kv := s.protected.removeOldest() // this will trigger an eviction in protected
+		s.probationary.addKey(kv.key, kv.value)
+	}
+	s.protected.addKey(key, value) // promoted key
+}
+
 // putWithKey adds or updates the cache value with key "key".
 // It also returns a value based on whether it was evicted or replaced.
 func (s *slruBase[K, V]) putWithKey(key K, value V) (UpsertState, V) {
 	curr, ok := s.protected.retrieveIndexWithKey(key)
 	if !ok {
-		return s.probationary.putWithKey(key, value)
+		curr, exists := s.probationary.retrieveIndexWithKey(key)
+		if !exists {
+			return s.probationary.putNewKey(key, value)
+		}
+		val := s.probationary.deleteWithIndex(curr).value // this won't trigger an eviction
+		s.promoteKey(key, value)
+		return UpsertReplace, val
 	}
-	val := s.protected.peekWithIndex(curr).value
-
-	s.protected.updateWithIndex(curr, value)
-	s.protected.makeRecent(curr)
-	return UpsertReplace, val
+	return s.protected.putOldKey(curr, value)
 }
 
 // removeOffsetIndex, offsets the index for protected.
