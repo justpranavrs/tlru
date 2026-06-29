@@ -24,68 +24,21 @@ func TestLRU(t *testing.T) {
 	testutil.TestCache(t, testutil.AdvancedLRUData, init)
 }
 
-// TestRaceLRU_Int runs a concurrency test for the [LRU] instance with int keys.
-func TestRaceLRU_Int(t *testing.T) {
-	cache, err := core.New[int, testutil.User](2048)
-	if err != nil {
-		t.Fatalf("[ERROR] could not initialize Cache instance: %v", err)
-	}
-
-	keys := 16384
-	numOps := 1 << 20
-	numWorkers := 256
-
-	testutil.TestRaceCache(t, cache, keys, numOps, numWorkers, func(c testutil.CacheOp) int {
-		return c.Key
-	})
+// TestRaceLRU runs [raceBase] for different types of keys.
+func TestRaceLRU(t *testing.T) {
+	raceBase[int32](t, "int32")
+	raceBase[int](t, "int")
+	raceBase[uint](t, "uint")
+	raceBase[string](t, "string")
 }
 
-// TestRaceLRU_Int runs a concurrency test for the [LRU] instance with int32 keys.
-func TestRaceLRU_Int32(t *testing.T) {
-	cacheInt32, err := core.New[int32, testutil.User](2048)
+// raceBase runs a concurrency test for the [LRU] instance with keys.
+func raceBase[K comparable](t *testing.T, key string) {
+	cache, err := core.New[K, testutil.User](2048)
 	if err != nil {
 		t.Fatalf("[ERROR] could not initialize Cache instance: %v", err)
 	}
-
-	keys := 16384
-	numOps := 1 << 20
-	numWorkers := 256
-
-	testutil.TestRaceCache(t, cacheInt32, keys, numOps, numWorkers, func(c testutil.CacheOp) int32 {
-		return int32(c.Key)
-	})
-}
-
-// TestRaceLRU_Int runs a concurrency test for the [LRU] instance with uint keys.
-func TestRaceLRU_Uint(t *testing.T) {
-	cacheUint, err := core.New[uint, testutil.User](2048)
-	if err != nil {
-		t.Fatalf("[ERROR] could not initialize Cache instance: %v", err)
-	}
-
-	keys := 16384
-	numOps := 1 << 20
-	numWorkers := 256
-
-	testutil.TestRaceCache(t, cacheUint, keys, numOps, numWorkers, func(c testutil.CacheOp) uint {
-		return uint(c.Key)
-	})
-}
-
-// TestRaceLRU_Int runs a concurrency test for the [LRU] instance with string keys.
-func TestRaceLRU_String(t *testing.T) {
-	cacheStr, err := core.New[string, testutil.User](2048)
-	if err != nil {
-		t.Fatalf("[ERROR] could not initialize Cache instance: %v", err)
-	}
-
-	keys := 16384
-	numOps := 1 << 20
-	numWorkers := 256
-
-	testutil.TestRaceCache(t, cacheStr, keys, numOps, numWorkers, func(c testutil.CacheOp) string {
-		return c.Value.Name
-	})
+	testutil.RunRace(t, key, cache)
 }
 
 // FuzzLRU runs a fuzz test for the [LRU] instance.

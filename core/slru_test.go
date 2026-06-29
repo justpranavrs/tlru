@@ -23,68 +23,21 @@ func TestSLRU(t *testing.T) {
 	testutil.TestCache(t, testutil.BasicLRUData, init)
 }
 
-// TestRaceSLRU_Int runs a concurrency test for the [SLRU] instance with int keys.
-func TestRaceSLRU_Int(t *testing.T) {
-	cache, err := core.NewSegmented[int, testutil.User](2048, 20)
-	if err != nil {
-		t.Fatalf("[ERROR] could not initialize Cache instance: %v", err)
-	}
-
-	keys := 16384
-	numOps := 1 << 20
-	numWorkers := 256
-
-	testutil.TestRaceCache(t, cache, keys, numOps, numWorkers, func(c testutil.CacheOp) int {
-		return c.Key
-	})
+// TestRaceSLRU runs [raceSegmented] for different types of keys.
+func TestRaceSLRU(t *testing.T) {
+	raceSegmented[int32](t, "int32")
+	raceSegmented[int](t, "int")
+	raceSegmented[uint](t, "uint")
+	raceSegmented[string](t, "string")
 }
 
-// TestRaceSLRU_Int runs a concurrency test for the [SLRU] instance with int32 keys.
-func TestRaceSLRU_Int32(t *testing.T) {
-	cacheInt32, err := core.NewSegmented[int32, testutil.User](2048, 20)
+// raceSegmented runs a concurrency test for the [SLRU] instance with keys.
+func raceSegmented[K comparable](t *testing.T, key string) {
+	cache, err := core.NewSegmented[K, testutil.User](2048, 30)
 	if err != nil {
 		t.Fatalf("[ERROR] could not initialize Cache instance: %v", err)
 	}
-
-	keys := 16384
-	numOps := 1 << 20
-	numWorkers := 256
-
-	testutil.TestRaceCache(t, cacheInt32, keys, numOps, numWorkers, func(c testutil.CacheOp) int32 {
-		return int32(c.Key)
-	})
-}
-
-// TestRaceSLRU_Int runs a concurrency test for the [SLRU] instance with uint keys.
-func TestRaceSLRU_Uint(t *testing.T) {
-	cacheUint, err := core.NewSegmented[uint, testutil.User](2048, 20)
-	if err != nil {
-		t.Fatalf("[ERROR] could not initialize Cache instance: %v", err)
-	}
-
-	keys := 16384
-	numOps := 1 << 20
-	numWorkers := 256
-
-	testutil.TestRaceCache(t, cacheUint, keys, numOps, numWorkers, func(c testutil.CacheOp) uint {
-		return uint(c.Key)
-	})
-}
-
-// TestRaceSLRU_Int runs a concurrency test for the [SLRU] instance with string keys.
-func TestRaceSLRU_String(t *testing.T) {
-	cacheStr, err := core.NewSegmented[string, testutil.User](2048, 20)
-	if err != nil {
-		t.Fatalf("[ERROR] could not initialize Cache instance: %v", err)
-	}
-
-	keys := 16384
-	numOps := 1 << 20
-	numWorkers := 256
-
-	testutil.TestRaceCache(t, cacheStr, keys, numOps, numWorkers, func(c testutil.CacheOp) string {
-		return c.Value.Name
-	})
+	testutil.RunRace(t, key, cache)
 }
 
 // BenchmarkSLRU runs a benchmark test for the [SLRU] instance.
