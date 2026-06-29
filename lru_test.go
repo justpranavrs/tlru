@@ -24,68 +24,21 @@ func TestPoolLRU(t *testing.T) {
 	testutil.TestCache(t, testutil.BasicLRUData, init)
 }
 
-// TestRacePoolLRU_Int runs a concurrency test for the sharded LRU instance with int keys.
-func TestRacePoolLRU_Int(t *testing.T) {
-	cache, err := tlru.New[int, testutil.User](4096)
-	if err != nil {
-		t.Fatalf("[ERROR] could not initialize Cache instance: %v", err)
-	}
-
-	keys := 65536
-	numOps := 1 << 20
-	numWorkers := 256
-
-	testutil.TestRaceCache(t, cache, keys, numOps, numWorkers, func(c testutil.CacheOp) int {
-		return c.Key
-	})
+// TestRaceLRU runs [racePool] for different types of keys.
+func TestRaceLRU(t *testing.T) {
+	racePool[int32](t, "int32")
+	racePool[int](t, "int")
+	racePool[uint](t, "uint")
+	racePool[string](t, "string")
 }
 
-// TestRacePoolLRU_Int runs a concurrency test for the sharded LRU instance with int32 keys.
-func TestRacePoolLRU_Int32(t *testing.T) {
-	cacheInt32, err := tlru.New[int32, testutil.User](4096)
+// racePool runs a concurrency test for the [PoolLRU] instance with keys.
+func racePool[K comparable](t *testing.T, key string) {
+	cache, err := tlru.New[K, testutil.User](2048)
 	if err != nil {
 		t.Fatalf("[ERROR] could not initialize Cache instance: %v", err)
 	}
-
-	keys := 65536
-	numOps := 1 << 20
-	numWorkers := 256
-
-	testutil.TestRaceCache(t, cacheInt32, keys, numOps, numWorkers, func(c testutil.CacheOp) int32 {
-		return int32(c.Key)
-	})
-}
-
-// TestRacePoolLRU_Int runs a concurrency test for the sharded LRU instance with uint keys.
-func TestRacePoolLRU_Uint(t *testing.T) {
-	cacheUint, err := tlru.New[uint, testutil.User](4096)
-	if err != nil {
-		t.Fatalf("[ERROR] could not initialize Cache instance: %v", err)
-	}
-
-	keys := 65536
-	numOps := 1 << 20
-	numWorkers := 256
-
-	testutil.TestRaceCache(t, cacheUint, keys, numOps, numWorkers, func(c testutil.CacheOp) uint {
-		return uint(c.Key)
-	})
-}
-
-// TestRacePoolLRU_Int runs a concurrency test for the sharded LRU instance with string keys.
-func TestRacePoolLRU_String(t *testing.T) {
-	cacheStr, err := tlru.New[string, testutil.User](4096)
-	if err != nil {
-		t.Fatalf("[ERROR] could not initialize Cache instance: %v", err)
-	}
-
-	keys := 65536
-	numOps := 1 << 20
-	numWorkers := 256
-
-	testutil.TestRaceCache(t, cacheStr, keys, numOps, numWorkers, func(c testutil.CacheOp) string {
-		return c.Value.Email
-	})
+	testutil.RunRace(t, key, cache)
 }
 
 // FuzzPoolLRU runs a fuzz test for the sharded LRU instance.

@@ -121,8 +121,8 @@ type link struct {
 	next int32
 }
 
-// assembleLRU creates an instance of [lruBase] using the given capacity.
-func assembleLRU[K comparable, V any](capacity int) (*lruBase[K, V], error) {
+// makeLRU creates an instance of [lruBase] using the given capacity.
+func makeLRU[K comparable, V any](capacity int) (*lruBase[K, V], error) {
 	if capacity < 2 || (capacity > math.MaxInt32-2) { // For capacity 1, a variable can be used.
 		return nil, ErrInvalidCapacity
 	}
@@ -305,6 +305,9 @@ func (l *lruBase[K, V]) clearState() {
 
 // deleteWithIndex removes a node from the cache.
 func (l *lruBase[K, V]) deleteWithIndex(idx int32) node[K, V] {
+	if l.mru == idx {
+		l.mru = l.links[l.mru].prev
+	}
 	l.removeWithIndex(idx)
 
 	free := l.links[l.tail].prev

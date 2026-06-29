@@ -60,7 +60,7 @@ var (
 	// ErrInvalidCapacity is returned by constructors when the maximum cache capacity is too small to be configured for the cache.
 	ErrInvalidCapacity = errors.New("invalid cache capacity: total capacity is too small for the configured for the cache")
 
-	// ErrInvalidSLRURatio is returned by [NewSLRU] when the ratio is not between 0 and 100.
+	// ErrInvalidSLRURatio is returned by [NewSegmented] when the ratio is not between 0 and 100.
 	ErrInvalidSLRURatio = errors.New("invalid probationary ratio: value must be between 0 and 100")
 )
 
@@ -68,7 +68,7 @@ var (
 //
 // Returns an [ErrInvalidCapacity] if the capacity is too small to be configured for the cache.
 func New[K comparable, V any](capacity int) (*LRU[K, V], error) {
-	lru, err := assembleLRU[K, V](capacity)
+	lru, err := makeLRU[K, V](capacity)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +79,7 @@ func New[K comparable, V any](capacity int) (*LRU[K, V], error) {
 	}, nil
 }
 
-// NewSLRU creates an instance of [SLRU] using the given capacity.
+// NewSegmented creates an instance of [SLRU] using the given capacity.
 // It takes in a ratio(0-100) which declares the ratio of probationary capacity
 // to the capacity. It is in Percentage.
 //
@@ -90,8 +90,8 @@ func New[K comparable, V any](capacity int) (*LRU[K, V], error) {
 // and protected capacities are too small to be configured for the caches.
 //
 // Returns an [ErrInvalidSLRURatio] if the ratio is not between 0 and 100.
-func NewSLRU[K comparable, V any](capacity int, ratio int) (*SLRU[K, V], error) {
-	lru, err := assembleSLRU[K, V](capacity, ratio, PromotionGet)
+func NewSegmented[K comparable, V any](capacity int, ratio int) (*SLRU[K, V], error) {
+	lru, err := makeSLRU[K, V](capacity, ratio, PromotionGet)
 	if err != nil {
 		return nil, err
 	}
@@ -133,24 +133,24 @@ func NewWithTTL[K comparable, V any](capacity int, ttl time.Duration, opts ...TT
 		_ = clk.Start()
 	}
 
-	lru, err := assembleLRU[K, ttlValue[V]](capacity)
+	lru, err := makeLRU[K, ttlValue[V]](capacity)
 	if err != nil {
 		return nil, err
 	}
 	return &TLRU[K, V]{
 		tSyncBase: tSyncBase[K, V, *tlruBase[K, V, *lruBase[K, ttlValue[V]]]]{
-			lru: assembleWithTTL(lru, ttl, clk, cfg.sliding),
+			lru: makeTLRU(lru, ttl, clk, cfg.sliding),
 		},
 	}, nil
 }
 
-// NewSLRUWithTTL creates an instance of [TSLRU] using the given capacity and sets
+// NewSegmentedWithTTL creates an instance of [TSLRU] using the given capacity and sets
 // the default expiration timer based on the argument "ttl".
 //
-// Refer [NewSLRU] for more details.
+// Refer [NewSegmented] for more details.
 //
 // Refer [NewWithTTL] for more details.
-func NewSLRUWithTTL[K comparable, V any](capacity int, ratio int, ttl time.Duration, opts ...TTLOption) (*TSLRU[K, V], error) {
+func NewSegmentedWithTTL[K comparable, V any](capacity int, ratio int, ttl time.Duration, opts ...TTLOption) (*TSLRU[K, V], error) {
 	// build the config
 	cfg := ttlConfig{
 		clock:   nil,
@@ -171,13 +171,13 @@ func NewSLRUWithTTL[K comparable, V any](capacity int, ratio int, ttl time.Durat
 		_ = clk.Start()
 	}
 
-	lru, err := assembleSLRU[K, ttlValue[V]](capacity, ratio, PromotionGet)
+	lru, err := makeSLRU[K, ttlValue[V]](capacity, ratio, PromotionGet)
 	if err != nil {
 		return nil, err
 	}
 	return &TSLRU[K, V]{
 		tSyncBase: tSyncBase[K, V, *tlruBase[K, V, *slruBase[K, ttlValue[V]]]]{
-			lru: assembleWithTTL(lru, ttl, clk, cfg.sliding),
+			lru: makeTLRU(lru, ttl, clk, cfg.sliding),
 		},
 	}, nil
 }

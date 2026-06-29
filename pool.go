@@ -89,8 +89,8 @@ var (
 	ErrInvalidShards = errors.New("invalid number of shards: must be in range [1, 1000000000]")
 )
 
-// assemble creates a [pool] instance with the provided arguments. It creates shards based on the createShard function.
-func assemble[K comparable, V any, C core.Shard[K, V]](capacity int, nShards int, hash mux.Mux[K], createShard func(cap int) (C, error)) (pool[K, V, C], error) {
+// makePool creates a [pool] instance with the provided arguments. It creates shards based on the createShard function.
+func makePool[K comparable, V any, C core.Shard[K, V]](capacity int, nShards int, hash mux.Mux[K], createShard func(cap int) (C, error)) (pool[K, V, C], error) {
 	var zero pool[K, V, C]
 	if capacity < int(nShards*2) || (capacity > math.MaxInt32) {
 		return zero, ErrInvalidCapacity

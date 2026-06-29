@@ -100,7 +100,7 @@ func NewWithTTL[K comparable, V any](capacity int, ttl time.Duration, opts ...TL
 		}
 		return core.NewWithTTL[K, V](cap, ttl, core.WithClock(cfg.clock))
 	}
-	pool, err := assembleWithTTL(capacity, cfg.shards, hash, cfg.clock, cfg.sliding, createShard)
+	pool, err := makeTPool(capacity, cfg.shards, hash, cfg.clock, cfg.sliding, createShard)
 	if err != nil {
 		return nil, err
 	}

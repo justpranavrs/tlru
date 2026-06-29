@@ -9,7 +9,6 @@ import (
 	"math/bits"
 	"math/rand/v2"
 	"strconv"
-	"sync"
 	"testing"
 
 	"github.com/justpranavrs/tlru/core"
@@ -66,41 +65,6 @@ func TestCache(t *testing.T, ops []testCacheOp, init TestInit) {
 			t.Fatal("\n[ERROR]:[INVALID METHOD]")
 		}
 	}
-}
-
-// TestRaceCache is the main concurrency check test for LRU.
-// It checks if it leads to data race with the -race flag.
-func TestRaceCache[K comparable](
-	t *testing.T, cache CacheTest[K, User], keys int,
-	numOps int, numWorkers int, getKey func(CacheOp) K,
-) {
-	data := GenerateZipfData(keys, numOps)
-	batchSize := (numOps / numWorkers)
-
-	var wg sync.WaitGroup
-	wg.Add(numWorkers)
-
-	for w := range numWorkers {
-		go func(workerID int) {
-			defer wg.Done()
-
-			st := workerID * batchSize
-			en := st + batchSize
-			if workerID == numWorkers-1 {
-				en = numOps
-			}
-
-			for i := st; i < en; i++ {
-				key := getKey(data[i])
-				if data[i].Method == opGet {
-					cache.Get(key)
-				} else {
-					cache.Put(key, data[i].Value)
-				}
-			}
-		}(w)
-	}
-	wg.Wait()
 }
 
 // FuzzCache runs a Fuzz test on the Cache instance.

@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.8.0] - 2026-06-30
+Link : [Github Release](https://github.com/justpranavrs/tlru/releases/tag/v0.8.0)
+
+### Added
+- `core.NewSLRU` renamed to `core.NewSegmented`
+- `core.NewSLRUWithTTL` renamed to `core.NewSegmentedWithTTL` 
+- `core.NewSLRU` renamed to `core.NewSegmented`
+- `core.NewSLRUWithTTL` renamed to `core.NewSegmentedWithTTL` 
+
+### Changed
+- All race tests for numerous types have been made easier and better to add across instances.
+
+### Fixed
+- `core.slruBase` offset index for protection segment.
+- `core.lruBase.deleteWithIndex` not updating `mru`.
+
 ## [v0.7.2] - 2026-06-28
 Link : [Github Release](https://github.com/justpranavrs/tlru/releases/tag/v0.7.2)
 
@@ -243,6 +259,7 @@ Link : [Github Release](https://github.com/justpranavrs/tlru/releases/tag/v0.1.0
 * `Examples` for GoDoc.
 
 ##
+* [0.8.0] : [View changes from 0.7.2 to 0.8.0](https://github.com/justpranavrs/tlru/compare/v0.7.2...v0.8.0)
 * [0.7.2] : [View changes from 0.7.1 to 0.7.2](https://github.com/justpranavrs/tlru/compare/v0.7.1...v0.7.2) 
 * [0.7.1] : [View changes from 0.7.0 to 0.7.1](https://github.com/justpranavrs/tlru/compare/v0.7.0...v0.7.1) 
 * [0.7.0] : [View changes from 0.6.1 to 0.7.0](https://github.com/justpranavrs/tlru/compare/v0.6.1...v0.7.0) 

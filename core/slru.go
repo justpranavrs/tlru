@@ -4,6 +4,8 @@
 
 package core
 
+import "math"
+
 // slruBase is the basic implementation of Segmented LRU.
 // It uses two [lruBase], a warm and a cold region to avoid cache pollution.
 type slruBase[K comparable, V any] struct {
@@ -19,21 +21,26 @@ type slruBase[K comparable, V any] struct {
 
 	// stats represents the metrics added by its private methods
 	stats Stats
+
+	// offset represents the index offset for protected
+	offset int32
 }
 
-// assembleSLRU creates an instance of [slruBase] using the given capacity and ratio.
-func assembleSLRU[K comparable, V any](capacity int, ratio int, promotion PromotionType) (*slruBase[K, V], error) {
-	if ratio < 0 || ratio > 100 {
+// makeSLRU creates an instance of [slruBase] using the given capacity and ratio.
+func makeSLRU[K comparable, V any](capacity int, ratio int, promotion PromotionType) (*slruBase[K, V], error) {
+	if capacity < 2 || (capacity > math.MaxInt32-2) { // For capacity 1, a variable can be used.
+		return nil, ErrInvalidCapacity
+	} else if ratio < 0 || ratio > 100 {
 		return nil, ErrInvalidSLRURatio
 	}
 
 	probCap := capacity * ratio / 100
-	prob, err := assembleLRU[K, V](probCap)
+	prob, err := makeLRU[K, V](probCap)
 	if err != nil {
 		return nil, err
 	}
 
-	prot, err := assembleLRU[K, V](capacity - probCap)
+	prot, err := makeLRU[K, V](capacity - probCap)
 	if err != nil {
 		return nil, err
 	}
@@ -41,7 +48,8 @@ func assembleSLRU[K comparable, V any](capacity int, ratio int, promotion Promot
 	return &slruBase[K, V]{
 		probationary: prob,
 		protected:    prot,
-		promotion: promotion,
+		promotion:    promotion,
+		offset: int32(probCap)+2,
 	}, nil
 }
 
@@ -206,7 +214,7 @@ func (s *slruBase[K, V]) addMisses() {
 
 // applyOffsetIndex, offsets the index for protected.
 func (s *slruBase[K, V]) applyOffsetIndex(idx int32) int32 {
-	return int32(s.probationary.capacity) + idx
+	return s.offset + idx
 }
 
 // clearState erases the entire cache's internal state
@@ -217,7 +225,7 @@ func (s *slruBase[K, V]) clearState() {
 
 // deleteWithIndex removes a node from the cache.
 func (s *slruBase[K, V]) deleteWithIndex(idx int32) node[K, V] {
-	if idx < int32(s.probationary.capacity) {
+	if idx < s.offset {
 		return s.probationary.deleteWithIndex(idx)
 	} else {
 		return s.protected.deleteWithIndex(s.removeOffsetIndex(idx))
@@ -226,21 +234,22 @@ func (s *slruBase[K, V]) deleteWithIndex(idx int32) node[K, V] {
 
 // deleteWithKey removes a key from the cache.
 func (s *slruBase[K, V]) deleteWithKey(key K) (V, bool) {
-	curr, ok := s.protected.retrieveIndexWithKey(key)
+	curr, ok := s.retrieveIndexWithKey(key)
 	if !ok {
-		curr, ok := s.probationary.retrieveIndexWithKey(key)
-		if !ok {
-			return *new(V), false
-		}
-		return s.probationary.deleteWithIndex(curr).value, true
+		return *new(V), false
 	}
-	return s.protected.deleteWithIndex(curr).value, true
+	return s.deleteWithIndex(curr).value, true
 }
 
 // getWithIndex updates the recency, the stats and returns the value.
 func (s *slruBase[K, V]) getWithIndex(idx int32) V {
-	if idx < int32(s.probationary.capacity) {
-		return s.probationary.getWithIndex(idx)
+	if idx < s.offset {
+		s.probationary.addHits()
+
+		node := s.probationary.deleteWithIndex(idx)
+		s.promoteKey(node.key, node.value)
+		
+		return node.value
 	} else {
 		return s.protected.getWithIndex(s.removeOffsetIndex(idx))
 	}
@@ -249,24 +258,17 @@ func (s *slruBase[K, V]) getWithIndex(idx int32) V {
 // getWithKey retrieves the value of the key passed as argument.
 // It returns false if the key is not present.
 func (s *slruBase[K, V]) getWithKey(key K) (V, bool) {
-	val, ok := s.protected.getWithKey(key)
+	curr, ok := s.retrieveIndexWithKey(key)
 	if !ok {
-		curr, exists := s.probationary.retrieveIndexWithKey(key)
-		if !exists {
-			s.probationary.addMisses()
-			return *new(V), false
-		}
-		s.probationary.addHits()
-
-		val = s.probationary.deleteWithIndex(curr).value // this won't trigger an eviction
-		s.promoteKey(key, val)
+		s.probationary.addMisses()
+		return *new(V), false
 	}
-	return val, true
+	return s.getWithIndex(curr), true
 }
 
 // makeRecent sets the key as 'Most Recently Used'.
 func (s *slruBase[K, V]) makeRecent(idx int32) {
-	if idx < int32(s.probationary.capacity) {
+	if idx < s.offset {
 		s.probationary.makeRecent(idx)
 	} else {
 		s.protected.makeRecent(s.removeOffsetIndex(idx))
@@ -275,7 +277,7 @@ func (s *slruBase[K, V]) makeRecent(idx int32) {
 
 // peekWithIndex retrieves the node without updating recency.
 func (s *slruBase[K, V]) peekWithIndex(idx int32) node[K, V] {
-	if idx < int32(s.probationary.capacity) {
+	if idx < s.offset {
 		return s.probationary.peekWithIndex(idx)
 	} else {
 		return s.protected.peekWithIndex(s.removeOffsetIndex(idx))
@@ -285,15 +287,12 @@ func (s *slruBase[K, V]) peekWithIndex(idx int32) node[K, V] {
 // peekWithKey retrieves value of key without updating cache internal state.
 // Returns false when key not found.
 func (s *slruBase[K, V]) peekWithKey(key K) (V, bool) {
-	curr, ok := s.protected.retrieveIndexWithKey(key)
+	curr, ok := s.retrieveIndexWithKey(key)
 	if !ok {
-		curr, ok := s.probationary.retrieveIndexWithKey(key)
-		if !ok {
-			return *new(V), false
-		}
-		return s.probationary.peekWithIndex(curr).value, true
+		s.probationary.addMisses()
+		return *new(V), false
 	}
-	return s.protected.peekWithIndex(curr).value, true
+	return s.peekWithIndex(curr).value, true
 }
 
 // promoteKey promotes a key from probationary to protected and demotes
@@ -328,7 +327,7 @@ func (s *slruBase[K, V]) putWithKey(key K, value V) (UpsertState, V) {
 
 // removeOffsetIndex, offsets the index for protected.
 func (s *slruBase[K, V]) removeOffsetIndex(idx int32) int32 {
-	return idx - int32(s.probationary.capacity)
+	return idx - s.offset
 }
 
 // removeOldest evicts the oldest item in the cache.
@@ -338,7 +337,7 @@ func (s *slruBase[K, V]) removeOldest() node[K, V] {
 
 // removeWithIndex detaches the given element from the doubly-linked list.
 func (s *slruBase[K, V]) removeWithIndex(idx int32) {
-	if idx < int32(s.probationary.capacity) {
+	if idx < s.offset {
 		s.probationary.removeWithIndex(idx)
 	} else {
 		s.protected.removeWithIndex(s.removeOffsetIndex(idx))
@@ -356,7 +355,7 @@ func (s *slruBase[K, V]) retrieveIndexWithKey(key K) (int32, bool) {
 
 // updateWithIndex updates the value of the provided index.
 func (s *slruBase[K, V]) updateWithIndex(idx int32, value V) {
-	if idx < int32(s.probationary.capacity) {
+	if idx < s.offset {
 		s.probationary.updateWithIndex(idx, value)
 	} else {
 		s.protected.updateWithIndex(s.removeOffsetIndex(idx), value)

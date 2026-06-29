@@ -74,8 +74,8 @@ type tPool[K comparable, V any, C core.TTLShard[K, V]] struct {
 	sliding bool
 }
 
-// assembleWithTTL creates a [tPool] instance with the provided arguments. It creates shards based on the createShard function.
-func assembleWithTTL[K comparable, V any, C core.TTLShard[K, V]](capacity int, nShards int,
+// makeTPool creates a [tPool] instance with the provided arguments. It creates shards based on the createShard function.
+func makeTPool[K comparable, V any, C core.TTLShard[K, V]](capacity int, nShards int,
 	hash mux.Mux[K], clock *clock.Clock, sliding bool, createShard func(cap int) (C, error),
 ) (tPool[K, V, C], error) {
 	var zero tPool[K, V, C]
@@ -108,7 +108,7 @@ func assembleWithTTL[K comparable, V any, C core.TTLShard[K, V]](capacity int, n
 	}, nil
 }
 
-// Close safely closes the background clock when TTL is enabled and also frees up 
+// Close safely closes the background clock when TTL is enabled and also frees up
 // memory on the cache.
 func (l *tPool[K, V, C]) Close() {
 	if l.clock != nil {
