@@ -38,9 +38,9 @@ type ttlValue[V any] struct {
 	value V
 }
 
-// assembleWithTTL creates an instance of [tlruBase] using the given base and sets
+// makeTLRU creates an instance of [tlruBase] using the given base and sets
 // the default expiration timer based on the argument "ttl".
-func assembleWithTTL[K comparable, V any, B base[K, ttlValue[V]]](base B, ttl time.Duration, clock *clock.Clock, sliding bool) *tlruBase[K, V, B] {
+func makeTLRU[K comparable, V any, B base[K, ttlValue[V]]](base B, ttl time.Duration, clock *clock.Clock, sliding bool) *tlruBase[K, V, B] {
 	return &tlruBase[K, V, B]{
 		base:    base,
 		clock:   clock,
@@ -54,7 +54,7 @@ func (l *tlruBase[K, V, B]) Capacity() int {
 	return l.base.Capacity()
 }
 
-// Close safely closes the background clock when TTL is enabled and also frees up 
+// Close safely closes the background clock when TTL is enabled and also frees up
 // memory on the cache.
 func (l *tlruBase[K, V, B]) Close() {
 	if l.clock != nil {

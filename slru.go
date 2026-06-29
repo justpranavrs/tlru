@@ -29,7 +29,7 @@ type PoolTSLRU[K comparable, V any] struct {
 	clock *clock.Clock
 }
 
-// NewSLRU creates a [PoolSLRU] instance with the given capacity and options. It creates
+// NewSegmented creates a [PoolSLRU] instance with the given capacity and options. It creates
 // the required [core.SLRU] instances, initiates the [mux.Mux] for shard routing.
 // It defaults to the Mux with hash/maphash algorithm. Check `tlru/mux` package for alternatives.
 // It takes in a ratio(0-100) which declares the ratio of probationary capacity
@@ -45,7 +45,7 @@ type PoolTSLRU[K comparable, V any] struct {
 // Returns [ErrInvalidCapacity] if capacity is too small to be configured for the cache.
 //
 // Returns an [ErrInvalidSLRURatio] if the ratio is not between 0 and 100.
-func NewSLRU[K comparable, V any](capacity int, ratio int, opts ...LRUOption) (*PoolSLRU[K, V], error) {
+func NewSegmented[K comparable, V any](capacity int, ratio int, opts ...LRUOption) (*PoolSLRU[K, V], error) {
 	// build the config
 	cfg := lruConfig{
 		shards: DefaultShards,
@@ -73,9 +73,9 @@ func NewSLRU[K comparable, V any](capacity int, ratio int, opts ...LRUOption) (*
 	}
 
 	createShard := func(cap int) (*core.SLRU[K, V], error) {
-		return core.NewSLRU[K, V](cap, ratio)
+		return core.NewSegmented[K, V](cap, ratio)
 	}
-	pool, err := assemble(capacity, cfg.shards, hash, createShard)
+	pool, err := makePool(capacity, cfg.shards, hash, createShard)
 	if err != nil {
 		return nil, err
 	}
@@ -84,13 +84,13 @@ func NewSLRU[K comparable, V any](capacity int, ratio int, opts ...LRUOption) (*
 	}, nil
 }
 
-// NewSLRUWithTTL creates a [PoolTSLRU] instance with the given capacity and options. It creates
+// NewSegmentedWithTTL creates a [PoolTSLRU] instance with the given capacity and options. It creates
 // the required [core.TSLRU] instances, initiates the [mux.Mux] for shard routing.
 //
-// Refer [NewSLRU] for more details.
+// Refer [NewSegmented] for more details.
 //
 // Refer [NewWithTTL] for more details.
-func NewSLRUWithTTL[K comparable, V any](capacity int, ratio int, ttl time.Duration, opts ...TLRUOption) (*PoolTSLRU[K, V], error) {
+func NewSegmentedWithTTL[K comparable, V any](capacity int, ratio int, ttl time.Duration, opts ...TLRUOption) (*PoolTSLRU[K, V], error) {
 	// build the config
 	cfg := tlruConfig{
 		lruConfig: lruConfig{
@@ -127,11 +127,11 @@ func NewSLRUWithTTL[K comparable, V any](capacity int, ratio int, ttl time.Durat
 
 	createShard := func(cap int) (*core.TSLRU[K, V], error) {
 		if cfg.sliding {
-			return core.NewSLRUWithTTL[K, V](cap, ratio, ttl, core.WithClock(cfg.clock), core.WithSliding())
+			return core.NewSegmentedWithTTL[K, V](cap, ratio, ttl, core.WithClock(cfg.clock), core.WithSliding())
 		}
-		return core.NewSLRUWithTTL[K, V](cap, ratio, ttl, core.WithClock(cfg.clock))
+		return core.NewSegmentedWithTTL[K, V](cap, ratio, ttl, core.WithClock(cfg.clock))
 	}
-	pool, err := assembleWithTTL(capacity, cfg.shards, hash, cfg.clock, cfg.sliding, createShard)
+	pool, err := makeTPool(capacity, cfg.shards, hash, cfg.clock, cfg.sliding, createShard)
 	if err != nil {
 		return nil, err
 	}

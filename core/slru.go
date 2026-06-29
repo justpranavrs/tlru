@@ -21,19 +21,19 @@ type slruBase[K comparable, V any] struct {
 	stats Stats
 }
 
-// assembleSLRU creates an instance of [slruBase] using the given capacity and ratio.
-func assembleSLRU[K comparable, V any](capacity int, ratio int, promotion PromotionType) (*slruBase[K, V], error) {
+// makeSLRU creates an instance of [slruBase] using the given capacity and ratio.
+func makeSLRU[K comparable, V any](capacity int, ratio int, promotion PromotionType) (*slruBase[K, V], error) {
 	if ratio < 0 || ratio > 100 {
 		return nil, ErrInvalidSLRURatio
 	}
 
 	probCap := capacity * ratio / 100
-	prob, err := assembleLRU[K, V](probCap)
+	prob, err := makeLRU[K, V](probCap)
 	if err != nil {
 		return nil, err
 	}
 
-	prot, err := assembleLRU[K, V](capacity - probCap)
+	prot, err := makeLRU[K, V](capacity - probCap)
 	if err != nil {
 		return nil, err
 	}
@@ -41,7 +41,7 @@ func assembleSLRU[K comparable, V any](capacity int, ratio int, promotion Promot
 	return &slruBase[K, V]{
 		probationary: prob,
 		protected:    prot,
-		promotion: promotion,
+		promotion:    promotion,
 	}, nil
 }
 

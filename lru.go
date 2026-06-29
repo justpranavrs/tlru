@@ -74,7 +74,7 @@ func New[K comparable, V any](capacity int, opts ...LRUOption) (*PoolLRU[K, V], 
 	createShard := func(cap int) (*core.LRU[K, V], error) {
 		return core.New[K, V](cap)
 	}
-	pool, err := assemble(capacity, cfg.shards, hash, createShard)
+	pool, err := makePool(capacity, cfg.shards, hash, createShard)
 	if err != nil {
 		return nil, err
 	}

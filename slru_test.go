@@ -14,7 +14,7 @@ import (
 // TestPoolSLRU runs a basic unit test for the sharded LRU instance.
 func TestPoolSLRU(t *testing.T) {
 	var init testutil.TestInit = func(capacity int) testutil.CacheTest[int, testutil.User] {
-		cache, err := tlru.NewSLRU[int, testutil.User](capacity, 10, tlru.WithShards(4))
+		cache, err := tlru.NewSegmented[int, testutil.User](capacity, 10, tlru.WithShards(4))
 		if err != nil {
 			t.Fatalf("[ERROR] could not initialize Cache instance: %v", err)
 		}
@@ -25,7 +25,7 @@ func TestPoolSLRU(t *testing.T) {
 
 // TestRacePoolSLRU_Int runs a concurrency test for the sharded LRU instance with int keys.
 func TestRacePoolSLRU_Int(t *testing.T) {
-	cache, err := tlru.NewSLRU[int, testutil.User](4096, 20)
+	cache, err := tlru.NewSegmented[int, testutil.User](4096, 20)
 	if err != nil {
 		t.Fatalf("[ERROR] could not initialize Cache instance: %v", err)
 	}
@@ -41,7 +41,7 @@ func TestRacePoolSLRU_Int(t *testing.T) {
 
 // TestRacePoolSLRU_Int runs a concurrency test for the sharded LRU instance with int32 keys.
 func TestRacePoolSLRU_Int32(t *testing.T) {
-	cacheInt32, err := tlru.NewSLRU[int32, testutil.User](4096, 20)
+	cacheInt32, err := tlru.NewSegmented[int32, testutil.User](4096, 20)
 	if err != nil {
 		t.Fatalf("[ERROR] could not initialize Cache instance: %v", err)
 	}
@@ -57,7 +57,7 @@ func TestRacePoolSLRU_Int32(t *testing.T) {
 
 // TestRacePoolSLRU_Int runs a concurrency test for the sharded LRU instance with uint keys.
 func TestRacePoolSLRU_Uint(t *testing.T) {
-	cacheUint, err := tlru.NewSLRU[uint, testutil.User](4096, 20)
+	cacheUint, err := tlru.NewSegmented[uint, testutil.User](4096, 20)
 	if err != nil {
 		t.Fatalf("[ERROR] could not initialize Cache instance: %v", err)
 	}
@@ -73,7 +73,7 @@ func TestRacePoolSLRU_Uint(t *testing.T) {
 
 // TestRacePoolSLRU_Int runs a concurrency test for the sharded LRU instance with string keys.
 func TestRacePoolSLRU_String(t *testing.T) {
-	cacheStr, err := tlru.NewSLRU[string, testutil.User](4096, 20)
+	cacheStr, err := tlru.NewSegmented[string, testutil.User](4096, 20)
 	if err != nil {
 		t.Fatalf("[ERROR] could not initialize Cache instance: %v", err)
 	}
@@ -90,7 +90,7 @@ func TestRacePoolSLRU_String(t *testing.T) {
 // BenchmarkPoolSLRUWith64 runs a benchmark test for the sharded LRU instance
 // with 64 sharded [core.LRU] instances.
 func BenchmarkPoolSLRUWith64(b *testing.B) {
-	cache, err := tlru.NewSLRU[int, testutil.User](16384, 20, tlru.WithShards(64))
+	cache, err := tlru.NewSegmented[int, testutil.User](16384, 20, tlru.WithShards(64))
 	if err != nil {
 		b.Fatalf("[ERROR] could not initialize Cache instance: %v", err)
 	}
@@ -106,7 +106,7 @@ func BenchmarkPoolSLRUWith64(b *testing.B) {
 
 // BenchmarkPoolSLRU runs a benchmark test for the sharded LRU instance.
 func BenchmarkPoolSLRU(b *testing.B) {
-	cache, err := tlru.NewSLRU[int, testutil.User](16384, 20)
+	cache, err := tlru.NewSegmented[int, testutil.User](16384, 20)
 	if err != nil {
 		b.Fatalf("[ERROR] could not initialize Cache instance: %v", err)
 	}
@@ -123,7 +123,7 @@ func BenchmarkPoolSLRU(b *testing.B) {
 // BenchmarkPoolSLRUWith256 runs a benchmark test for the sharded LRU instance
 // with 256 sharded [core.LRU] instances.
 func BenchmarkPoolSLRUWith256(b *testing.B) {
-	cache, err := tlru.NewSLRU[int, testutil.User](16384, 20, tlru.WithShards(256))
+	cache, err := tlru.NewSegmented[int, testutil.User](16384, 20, tlru.WithShards(256))
 	if err != nil {
 		b.Fatalf("[ERROR] could not initialize Cache instance: %v", err)
 	}

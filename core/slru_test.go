@@ -14,7 +14,7 @@ import (
 // TestSLRU runs a basic and advanced unit tests for the [SLRU] instance.
 func TestSLRU(t *testing.T) {
 	var init testutil.TestInit = func(capacity int) testutil.CacheTest[int, testutil.User] {
-		cache, err := core.NewSLRU[int, testutil.User](capacity, 20)
+		cache, err := core.NewSegmented[int, testutil.User](capacity, 20)
 		if err != nil {
 			t.Fatalf("[ERROR] could not initialize Cache instance: %v", err)
 		}
@@ -25,7 +25,7 @@ func TestSLRU(t *testing.T) {
 
 // TestRaceSLRU_Int runs a concurrency test for the [SLRU] instance with int keys.
 func TestRaceSLRU_Int(t *testing.T) {
-	cache, err := core.NewSLRU[int, testutil.User](2048, 20)
+	cache, err := core.NewSegmented[int, testutil.User](2048, 20)
 	if err != nil {
 		t.Fatalf("[ERROR] could not initialize Cache instance: %v", err)
 	}
@@ -41,7 +41,7 @@ func TestRaceSLRU_Int(t *testing.T) {
 
 // TestRaceSLRU_Int runs a concurrency test for the [SLRU] instance with int32 keys.
 func TestRaceSLRU_Int32(t *testing.T) {
-	cacheInt32, err := core.NewSLRU[int32, testutil.User](2048, 20)
+	cacheInt32, err := core.NewSegmented[int32, testutil.User](2048, 20)
 	if err != nil {
 		t.Fatalf("[ERROR] could not initialize Cache instance: %v", err)
 	}
@@ -57,7 +57,7 @@ func TestRaceSLRU_Int32(t *testing.T) {
 
 // TestRaceSLRU_Int runs a concurrency test for the [SLRU] instance with uint keys.
 func TestRaceSLRU_Uint(t *testing.T) {
-	cacheUint, err := core.NewSLRU[uint, testutil.User](2048, 20)
+	cacheUint, err := core.NewSegmented[uint, testutil.User](2048, 20)
 	if err != nil {
 		t.Fatalf("[ERROR] could not initialize Cache instance: %v", err)
 	}
@@ -73,7 +73,7 @@ func TestRaceSLRU_Uint(t *testing.T) {
 
 // TestRaceSLRU_Int runs a concurrency test for the [SLRU] instance with string keys.
 func TestRaceSLRU_String(t *testing.T) {
-	cacheStr, err := core.NewSLRU[string, testutil.User](2048, 20)
+	cacheStr, err := core.NewSegmented[string, testutil.User](2048, 20)
 	if err != nil {
 		t.Fatalf("[ERROR] could not initialize Cache instance: %v", err)
 	}
@@ -89,7 +89,7 @@ func TestRaceSLRU_String(t *testing.T) {
 
 // BenchmarkSLRU runs a benchmark test for the [SLRU] instance.
 func BenchmarkSLRU(b *testing.B) {
-	cache, err := core.NewSLRU[int, testutil.User](2048, 20)
+	cache, err := core.NewSegmented[int, testutil.User](2048, 20)
 	if err != nil {
 		b.Fatalf("[ERROR] could not initialize Cache instance: %v", err)
 	}
